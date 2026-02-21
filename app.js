@@ -79,6 +79,7 @@ renderTracker();
 rebuildFurniture();
 
 document.getElementById("furniture-form").addEventListener("submit", onAddFurniture);
+document.getElementById("link-form").addEventListener("submit", onAddFromLink);
 document.getElementById("tracker-form").addEventListener("submit", onAddTrackerItem);
 document.getElementById("catalog-import-form").addEventListener("submit", onCatalogImport);
 document.getElementById("catalog-reset-btn").addEventListener("click", onCatalogReset);
@@ -224,6 +225,60 @@ function onAddFurniture(event) {
   document.getElementById("item-depth").value = 3;
   document.getElementById("item-height").value = 3;
   document.getElementById("item-color").value = "#c46f37";
+}
+
+function onAddFromLink(event) {
+  event.preventDefault();
+  const linkInput = document.getElementById("item-link");
+  const raw = linkInput.value.trim();
+  if (!raw) {
+    setStatus("Paste a product link first.");
+    return;
+  }
+
+  let url;
+  try {
+    url = new URL(raw);
+  } catch {
+    setStatus("That link is not a valid URL.");
+    return;
+  }
+
+  const preset = inferPresetFromLink(url.href);
+  const item = {
+    id: crypto.randomUUID(),
+    name: deriveNameFromUrl(url),
+    width: preset.width,
+    depth: preset.depth,
+    height: preset.height,
+    color: preset.color,
+    x: center.x,
+    y: center.y,
+    rotation: 0,
+  };
+
+  if (!isValidPlacement(item, item.id)) {
+    setStatus("Auto-placement blocked at center. Move another item and try again.");
+    return;
+  }
+
+  state.furniture.push(item);
+  save("apartmentPlannerFurniture", state.furniture);
+  rebuildFurniture();
+
+  state.tracker.push({
+    id: crypto.randomUUID(),
+    name: item.name,
+    qty: 1,
+    price: 0,
+    notes: url.href,
+    status: "needed",
+  });
+  save("apartmentPlannerTracker", state.tracker);
+  renderTracker();
+
+  linkInput.value = "";
+  setStatus(`Added ${item.name} from link.`);
 }
 
 function onPointerDown(event, id) {
@@ -623,6 +678,55 @@ function normalizeCatalogItem(row) {
     link: String(row.link ?? "https://www.google.com/search?q=furniture").trim() || "https://www.google.com/search?q=furniture",
     image: String(row.image ?? "").trim() || "https://images.unsplash.com/photo-1484101403633-562f891dc89a?auto=format&fit=crop&w=480&q=80",
   };
+}
+
+function inferPresetFromLink(link) {
+  const text = link.toLowerCase();
+
+  if (text.includes("sofa") || text.includes("couch") || text.includes("sectional")) {
+    return { width: 7.5, depth: 3.2, height: 3, color: "#8f4a31" };
+  }
+  if (text.includes("bed") || text.includes("mattress")) {
+    return { width: 5.2, depth: 6.8, height: 2, color: "#6d4c41" };
+  }
+  if (text.includes("tv") || text.includes("monitor")) {
+    return { width: 4.8, depth: 0.4, height: 2.8, color: "#1f2937" };
+  }
+  if (text.includes("desk") || text.includes("table")) {
+    return { width: 4.8, depth: 2.4, height: 2.5, color: "#7b5a3a" };
+  }
+  if (text.includes("chair")) {
+    return { width: 2, depth: 2, height: 3, color: "#5b6474" };
+  }
+
+  return { width: 3, depth: 2, height: 3, color: "#7b5a3a" };
+}
+
+function deriveNameFromUrl(url) {
+  const pathPart = url.pathname
+    .split("/")
+    .filter(Boolean)
+    .pop();
+
+  if (!pathPart) {
+    return `${url.hostname.replace("www.", "")} item`;
+  }
+
+  const clean = decodeURIComponent(pathPart)
+    .replaceAll(/[-_]+/g, " ")
+    .replaceAll(/[0-9]+/g, " ")
+    .replaceAll(/\\s+/g, " ")
+    .trim();
+
+  if (!clean) {
+    return `${url.hostname.replace("www.", "")} item`;
+  }
+
+  return clean
+    .split(" ")
+    .slice(0, 6)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
 }
 
 function onAddTrackerItem(event) {
