@@ -16,7 +16,7 @@
     <div class="app-shell">
       <aside class="sidebar">
         <h1>Apartment Planner</h1>
-        <p class="subtitle">3D layout + furniture planning + purchase tracker</p>
+        <p class="subtitle">2D layout + furniture planning + purchase tracker</p>
 
         <section class="card">
           <h2>Measured Layout</h2>
@@ -108,25 +108,10 @@
       </aside>
 
       <main class="viewer-wrap">
-        <div class="view-presets">
-          <button id="view-top" type="button">Top</button>
-          <button id="view-living" type="button" class="ghost">Living</button>
-          <button id="view-bedroom" type="button" class="ghost">Bedroom</button>
-          <button id="view-kitchen" type="button" class="ghost">Kitchen</button>
-          <button id="view-entry" type="button" class="ghost">Entry</button>
-        </div>
         <div id="viewer"></div>
       </main>
     </div>
 
-    <script type="importmap">
-      {
-        "imports": {
-          "three": "https://unpkg.com/three@0.164.1/build/three.module.js",
-          "three/addons/": "https://unpkg.com/three@0.164.1/examples/jsm/"
-        }
-      }
-    </script>
     <script type="module" src="app.js"></script>
   </body>
 </html>

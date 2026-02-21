@@ -1,16 +1,10 @@
-import * as THREE from "three";
-import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-
-const FEET = 1;
-const WALL_HEIGHT = 9 * FEET;
-const WALL_THICKNESS = 0.3 * FEET;
+const WALL_THICKNESS = 0.3;
 const POSITION_SNAP = 0.25;
-const ROTATION_STEP = Math.PI / 2;
+const ROTATION_STEP = 90;
 const COLLISION_GAP = 0.2;
 
 const DIM = {
   bedroomWidth: 10 + 7 / 12,
-  bedroomDepth: 12 + 5 / 12,
   livingWidth: 13.5,
   kitchenReturn: 4 + 7 / 12,
   entrySpan: 9 + 7 / 12,
@@ -31,8 +25,7 @@ const DEFAULT_CATALOG_ITEMS = [
     height: 2.9,
     color: "#8f4a31",
     price: 899,
-    image:
-      "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=480&q=80",
+    image: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=480&q=80",
     link: "https://www.ikea.com/us/en/search/?q=KIVIK",
   },
   {
@@ -44,22 +37,8 @@ const DEFAULT_CATALOG_ITEMS = [
     height: 2.8,
     color: "#1f2937",
     price: 1699,
-    image:
-      "https://images.unsplash.com/photo-1593784991095-a205069470b6?auto=format&fit=crop&w=480&q=80",
+    image: "https://images.unsplash.com/photo-1593784991095-a205069470b6?auto=format&fit=crop&w=480&q=80",
     link: "https://www.bestbuy.com/site/searchpage.jsp?st=65+oled",
-  },
-  {
-    id: "cat-table-1",
-    name: "West Elm Dining Table",
-    category: "Furniture",
-    width: 6,
-    depth: 3.2,
-    height: 2.5,
-    color: "#7b5a3a",
-    price: 650,
-    image:
-      "https://images.unsplash.com/photo-1577140917170-285929fb55b7?auto=format&fit=crop&w=480&q=80",
-    link: "https://www.westelm.com/shop/furniture/dining-tables/",
   },
   {
     id: "cat-bed-1",
@@ -70,40 +49,13 @@ const DEFAULT_CATALOG_ITEMS = [
     height: 2,
     color: "#6d4c41",
     price: 799,
-    image:
-      "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=480&q=80",
+    image: "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=480&q=80",
     link: "https://www.cb2.com/furniture/beds/1",
-  },
-  {
-    id: "cat-desk-1",
-    name: "Herman Miller Desk",
-    category: "Furniture",
-    width: 4.5,
-    depth: 2.2,
-    height: 2.5,
-    color: "#4b5563",
-    price: 420,
-    image:
-      "https://images.unsplash.com/photo-1518455027359-f3f8164ba6bd?auto=format&fit=crop&w=480&q=80",
-    link: "https://store.hermanmiller.com/home-office-desks/",
-  },
-  {
-    id: "cat-speaker-1",
-    name: "Sonos Pair",
-    category: "Tech",
-    width: 1.2,
-    depth: 1.2,
-    height: 1.8,
-    color: "#111827",
-    price: 499,
-    image:
-      "https://images.unsplash.com/photo-1545454675-3531b543be5d?auto=format&fit=crop&w=480&q=80",
-    link: "https://www.sonos.com/en-us/shop",
   },
 ];
 
 const state = {
-  furniture: load("apartmentPlannerFurniture", []),
+  furniture: normalizeFurniture(load("apartmentPlannerFurniture", [])),
   tracker: load("apartmentPlannerTracker", []),
   catalog: loadCatalog(),
   selectedId: null,
@@ -111,272 +63,136 @@ const state = {
 
 const viewer = document.getElementById("viewer");
 const statusEl = document.getElementById("status");
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.setSize(viewer.clientWidth, viewer.clientHeight);
-renderer.shadowMap.enabled = true;
-viewer.appendChild(renderer.domElement);
-
-const scene = new THREE.Scene();
-scene.background = new THREE.Color("#f4f5f7");
-
-const camera = new THREE.PerspectiveCamera(55, viewer.clientWidth / viewer.clientHeight, 0.1, 2000);
-camera.position.set(14, 28, 24);
-
-const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
-
-const hemi = new THREE.HemisphereLight(0xffffff, 0x90a1af, 0.75);
-scene.add(hemi);
-
-const dirLight = new THREE.DirectionalLight(0xffffff, 0.85);
-dirLight.position.set(22, 32, 16);
-dirLight.castShadow = true;
-dirLight.shadow.mapSize.set(2048, 2048);
-scene.add(dirLight);
-
-const apartmentGroup = new THREE.Group();
-scene.add(apartmentGroup);
-
-const furnitureGroup = new THREE.Group();
-scene.add(furnitureGroup);
-
-const annotationGroup = new THREE.Group();
-scene.add(annotationGroup);
-
 const floorPoints = buildMeasuredFloorPlan();
-const floorShape = shapeFromPoints(floorPoints);
-const floorMesh = new THREE.Mesh(
-  new THREE.ShapeGeometry(floorShape),
-  new THREE.MeshStandardMaterial({ color: "#e8e1d4", roughness: 0.95 })
-);
-floorMesh.rotation.x = -Math.PI / 2;
-floorMesh.receiveShadow = true;
-apartmentGroup.add(floorMesh);
-
 const interiorWalls = buildInteriorWallSegments();
-addPerimeterWalls(floorPoints);
-addInteriorWalls(interiorWalls);
-addRoomLabels();
-addDoorSwings();
-
-const grid = new THREE.GridHelper(90, 90, 0x9ca3af, 0xd1d5db);
-grid.position.y = 0.01;
-scene.add(grid);
-
-const placementPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-const raycaster = new THREE.Raycaster();
-const pointer = new THREE.Vector2();
-const drag = {
-  active: false,
-  item: null,
-  offset: new THREE.Vector3(),
-};
-
-const interiorWallColliders = interiorWalls.map((segment) => {
-  const length = Math.hypot(segment.b.x - segment.a.x, segment.b.z - segment.a.z);
-  const center = {
-    x: (segment.a.x + segment.b.x) / 2,
-    z: (segment.a.z + segment.b.z) / 2,
-  };
-  const angle = Math.atan2(segment.b.z - segment.a.z, segment.b.x - segment.a.x);
-  return {
-    center,
-    width: length,
-    depth: WALL_THICKNESS + COLLISION_GAP,
-    angle,
-  };
-});
 
 const extents = getExtents(floorPoints);
-controls.target.set((extents.minX + extents.maxX) / 2, 0, (extents.minZ + extents.maxZ) / 2);
+const center = { x: (extents.minX + extents.maxX) / 2, y: (extents.minY + extents.maxY) / 2 };
 
-const cameraPresets = buildCameraPresets();
+let svg = null;
+let furnitureLayer = null;
+const drag = { active: false, item: null, offsetX: 0, offsetY: 0 };
 
+renderLayout();
 renderCatalog();
-rebuildFurnitureMeshes();
 renderTracker();
+rebuildFurniture();
 
-renderer.domElement.addEventListener("pointerdown", onPointerDown);
-renderer.domElement.addEventListener("pointermove", onPointerMove);
-window.addEventListener("pointerup", onPointerUp);
-window.addEventListener("resize", onResize);
-window.addEventListener("keydown", onKeyDown);
 document.getElementById("furniture-form").addEventListener("submit", onAddFurniture);
 document.getElementById("tracker-form").addEventListener("submit", onAddTrackerItem);
 document.getElementById("catalog-import-form").addEventListener("submit", onCatalogImport);
 document.getElementById("catalog-reset-btn").addEventListener("click", onCatalogReset);
-wireViewButtons();
+window.addEventListener("keydown", onKeyDown);
+window.addEventListener("pointermove", onPointerMove);
+window.addEventListener("pointerup", onPointerUp);
 
-animate();
+function renderLayout() {
+  viewer.innerHTML = "";
+  const margin = 2;
+  const width = extents.maxX - extents.minX + margin * 2;
+  const height = extents.maxY - extents.minY + margin * 2;
 
-function buildMeasuredFloorPlan() {
-  const raw = getRawFloorPlanPoints();
-  return centerRawPoints(raw);
-}
+  svg = svgEl("svg", {
+    class: "plan-svg",
+    viewBox: `${extents.minX - margin} ${extents.minY - margin} ${width} ${height}`,
+    preserveAspectRatio: "xMidYMid meet",
+  });
 
-function buildInteriorWallSegments() {
-  const toCentered = rawToCenteredFactory();
-  const xEntryRight = DIM.bedroomWidth + DIM.livingWidth;
-  const zEntryCloset = DIM.totalDepth - 5.2;
+  const grid = svgEl("pattern", { id: "grid", width: 1, height: 1, patternUnits: "userSpaceOnUse" });
+  grid.appendChild(svgEl("path", { d: "M 1 0 L 0 0 0 1", fill: "none", stroke: "#e9edf3", "stroke-width": "0.03" }));
 
-  return [
-    { a: toCentered(DIM.bedroomWidth, 0), b: toCentered(DIM.bedroomWidth, DIM.hallDepth) },
-    { a: toCentered(DIM.bedroomWidth + 1.15, 2.2), b: toCentered(DIM.bedroomWidth + 1.15, DIM.dividerRun) },
-    {
-      a: toCentered(DIM.bedroomWidth + 1.15, DIM.dividerRun),
-      b: toCentered(DIM.bedroomWidth, DIM.dividerRun),
-    },
-    { a: toCentered(xEntryRight, DIM.rightDrop), b: toCentered(xEntryRight, DIM.totalDepth) },
-    { a: toCentered(11.0, zEntryCloset), b: toCentered(xEntryRight - DIM.entrySpan, zEntryCloset) },
-  ];
-}
+  const defs = svgEl("defs");
+  defs.appendChild(grid);
+  svg.appendChild(defs);
 
-function getRawFloorPlanPoints() {
-  const xEntryRight = DIM.bedroomWidth + DIM.livingWidth;
-  const xEntryLeft = xEntryRight - DIM.entrySpan;
-  const xRightOuter = xEntryRight + DIM.kitchenReturn;
-  const zEntryNotchTop = DIM.totalDepth - 2.8;
-  const zBathNotchTop = DIM.totalDepth - 5.2;
-
-  return [
-    { x: 0, z: 0 },
-    { x: xEntryRight, z: 0 },
-    { x: xEntryRight, z: -DIM.kitchenTopRise },
-    { x: xRightOuter, z: -DIM.kitchenTopRise },
-    { x: xRightOuter, z: DIM.rightDrop },
-    { x: xEntryRight, z: DIM.rightDrop },
-    { x: xEntryRight, z: DIM.totalDepth },
-    { x: xEntryLeft, z: DIM.totalDepth },
-    { x: xEntryLeft, z: zEntryNotchTop },
-    { x: 11.0, z: zEntryNotchTop },
-    { x: 11.0, z: zBathNotchTop },
-    { x: 9.0, z: zBathNotchTop },
-    { x: 9.0, z: DIM.totalDepth },
-    { x: 0, z: DIM.totalDepth },
-  ];
-}
-
-function centerRawPoints(raw) {
-  const ext = getExtents(raw);
-  const cx = (ext.minX + ext.maxX) / 2;
-  const cz = (ext.minZ + ext.maxZ) / 2;
-  return raw.map((p) => ({ x: p.x - cx, z: p.z - cz }));
-}
-
-function rawToCenteredFactory() {
-  const ext = getExtents(getRawFloorPlanPoints());
-  const cx = (ext.minX + ext.maxX) / 2;
-  const cz = (ext.minZ + ext.maxZ) / 2;
-  return (x, z) => ({ x: x - cx, z: z - cz });
-}
-
-function shapeFromPoints(points) {
-  const shape = new THREE.Shape();
-  shape.moveTo(points[0].x, points[0].z);
-  for (let i = 1; i < points.length; i += 1) {
-    shape.lineTo(points[i].x, points[i].z);
-  }
-  shape.lineTo(points[0].x, points[0].z);
-  return shape;
-}
-
-function addPerimeterWalls(points) {
-  for (let i = 0; i < points.length; i += 1) {
-    const a = points[i];
-    const b = points[(i + 1) % points.length];
-    addWallSegment(a, b, "#f8fafc");
-  }
-}
-
-function addInteriorWalls(segments) {
-  for (const segment of segments) {
-    addWallSegment(segment.a, segment.b, "#ecf0f6");
-  }
-}
-
-function addWallSegment(a, b, color) {
-  const dx = b.x - a.x;
-  const dz = b.z - a.z;
-  const length = Math.hypot(dx, dz);
-  if (length < 0.05) return;
-
-  const mesh = new THREE.Mesh(
-    new THREE.BoxGeometry(length, WALL_HEIGHT, WALL_THICKNESS),
-    new THREE.MeshStandardMaterial({ color, roughness: 0.75 })
+  svg.appendChild(
+    svgEl("rect", {
+      x: extents.minX - margin,
+      y: extents.minY - margin,
+      width,
+      height,
+      fill: "url(#grid)",
+    })
   );
-  mesh.castShadow = true;
-  mesh.position.set((a.x + b.x) / 2, WALL_HEIGHT / 2, (a.z + b.z) / 2);
-  mesh.rotation.y = -Math.atan2(dz, dx);
-  apartmentGroup.add(mesh);
-}
 
-function addRoomLabels() {
-  const toCentered = rawToCenteredFactory();
-  const labels = [
-    { text: "Bedroom", x: 4.8, z: 10.5 },
-    { text: "Living Room", x: 16.4, z: 11.2 },
-    { text: "Kitchen", x: 26.5, z: 2.8 },
-    { text: "Bathroom", x: 3.8, z: 27.2 },
-    { text: "Entry", x: 16.2, z: 27.4 },
-  ];
+  svg.appendChild(
+    svgEl("polygon", {
+      points: floorPoints.map((p) => `${p.x},${p.y}`).join(" "),
+      fill: "#f8f3e8",
+      stroke: "#153f75",
+      "stroke-width": "0.24",
+      "stroke-linejoin": "round",
+    })
+  );
 
-  for (const label of labels) {
-    const p = toCentered(label.x, label.z);
-    const sprite = makeLabelSprite(label.text);
-    sprite.position.set(p.x, 5.2, p.z);
-    sprite.scale.set(3.9, 1.2, 1);
-    annotationGroup.add(sprite);
+  for (const seg of interiorWalls) {
+    svg.appendChild(
+      svgEl("line", {
+        x1: seg.a.x,
+        y1: seg.a.y,
+        x2: seg.b.x,
+        y2: seg.b.y,
+        stroke: "#315d96",
+        "stroke-width": "0.2",
+        "stroke-linecap": "round",
+      })
+    );
   }
+
+  for (const label of getRoomLabels()) {
+    svg.appendChild(
+      svgEl("text", {
+        x: label.x,
+        y: label.y,
+        class: "room-label",
+      }, label.text)
+    );
+  }
+
+  for (const arc of getDoorArcs()) {
+    svg.appendChild(
+      svgEl("path", {
+        d: describeArc(arc.cx, arc.cy, arc.r, arc.start, arc.end),
+        fill: "none",
+        stroke: "#64748b",
+        "stroke-width": "0.08",
+      })
+    );
+  }
+
+  furnitureLayer = svgEl("g", { id: "furniture-layer" });
+  svg.appendChild(furnitureLayer);
+  viewer.appendChild(svg);
 }
 
-function makeLabelSprite(text) {
-  const canvas = document.createElement("canvas");
-  canvas.width = 512;
-  canvas.height = 160;
-  const ctx = canvas.getContext("2d");
-  ctx.fillStyle = "rgba(255,255,255,0.78)";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.strokeStyle = "rgba(30,41,59,0.45)";
-  ctx.lineWidth = 4;
-  ctx.strokeRect(2, 2, canvas.width - 4, canvas.height - 4);
-  ctx.fillStyle = "#0f172a";
-  ctx.font = "700 64px 'Source Sans 3'";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+function rebuildFurniture() {
+  furnitureLayer.innerHTML = "";
 
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
-  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false });
-  return new THREE.Sprite(mat);
-}
+  for (const item of state.furniture) {
+    const group = svgEl("g", {
+      transform: `translate(${item.x} ${item.y}) rotate(${item.rotation})`,
+      class: `furniture-item${item.id === state.selectedId ? " selected" : ""}`,
+      "data-id": item.id,
+    });
 
-function addDoorSwings() {
-  const toCentered = rawToCenteredFactory();
-  const xEntryRight = DIM.bedroomWidth + DIM.livingWidth;
-  const xEntryLeft = xEntryRight - DIM.entrySpan;
+    const rect = svgEl("rect", {
+      x: -item.width / 2,
+      y: -item.depth / 2,
+      width: item.width,
+      height: item.depth,
+      rx: 0.08,
+      fill: item.color,
+      stroke: "#111827",
+      "stroke-width": "0.06",
+    });
 
-  addDoorSwing(10.58, 16.0, 1.2, Math.PI / 2, Math.PI, toCentered);
-  addDoorSwing(11.2, DIM.totalDepth - 5.2, 1.1, -Math.PI / 2, 0, toCentered);
-  addDoorSwing(xEntryRight, DIM.totalDepth - 3.4, 1.2, Math.PI, Math.PI * 1.5, toCentered);
-  addDoorSwing(xEntryLeft + 1.2, DIM.totalDepth, 1.15, -Math.PI / 2, 0, toCentered);
-}
+    const txt = svgEl("text", { x: 0, y: 0.08, class: "furniture-label" }, item.name);
 
-function addDoorSwing(rawX, rawZ, radius, startAngle, endAngle, toCentered) {
-  const center = toCentered(rawX, rawZ);
-  const arc = new THREE.EllipseCurve(0, 0, radius, radius, startAngle, endAngle, false, 0);
-  const points = arc.getPoints(24).map((p) => new THREE.Vector3(center.x + p.x, 0.08, center.z + p.y));
-  const geom = new THREE.BufferGeometry().setFromPoints(points);
-  const line = new THREE.Line(geom, new THREE.LineBasicMaterial({ color: 0x475569 }));
-  annotationGroup.add(line);
-
-  const doorEnd = points[points.length - 1];
-  const hingeToLeaf = new THREE.BufferGeometry().setFromPoints([
-    new THREE.Vector3(center.x, 0.08, center.z),
-    new THREE.Vector3(doorEnd.x, 0.08, doorEnd.z),
-  ]);
-  annotationGroup.add(new THREE.Line(hingeToLeaf, new THREE.LineBasicMaterial({ color: 0x64748b })));
+    group.appendChild(rect);
+    group.appendChild(txt);
+    group.addEventListener("pointerdown", (event) => onPointerDown(event, item.id));
+    furnitureLayer.appendChild(group);
+  }
 }
 
 function onAddFurniture(event) {
@@ -388,9 +204,9 @@ function onAddFurniture(event) {
     depth: Number(document.getElementById("item-depth").value),
     height: Number(document.getElementById("item-height").value),
     color: document.getElementById("item-color").value,
-    x: controls.target.x,
-    z: controls.target.z,
-    rotationY: 0,
+    x: center.x,
+    y: center.y,
+    rotation: 0,
   };
 
   if (!isValidPlacement(item, item.id)) {
@@ -400,7 +216,7 @@ function onAddFurniture(event) {
 
   state.furniture.push(item);
   save("apartmentPlannerFurniture", state.furniture);
-  rebuildFurnitureMeshes();
+  rebuildFurniture();
   setStatus(`Placed ${item.name}.`);
 
   event.target.reset();
@@ -410,77 +226,38 @@ function onAddFurniture(event) {
   document.getElementById("item-color").value = "#c46f37";
 }
 
-function rebuildFurnitureMeshes() {
-  furnitureGroup.clear();
-
-  for (const item of state.furniture) {
-    const geom = new THREE.BoxGeometry(item.width, item.height, item.depth);
-    const mat = new THREE.MeshStandardMaterial({
-      color: item.color,
-      emissive: item.id === state.selectedId ? new THREE.Color("#0f172a") : new THREE.Color("#000000"),
-      emissiveIntensity: item.id === state.selectedId ? 0.18 : 0,
-    });
-
-    const mesh = new THREE.Mesh(geom, mat);
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    mesh.position.set(item.x, item.height / 2, item.z);
-    mesh.rotation.y = item.rotationY;
-    mesh.userData.itemId = item.id;
-
-    const edge = new THREE.LineSegments(
-      new THREE.EdgesGeometry(geom),
-      new THREE.LineBasicMaterial({ color: 0x1f2937 })
-    );
-    mesh.add(edge);
-
-    furnitureGroup.add(mesh);
-  }
-}
-
-function onPointerDown(event) {
-  const hit = pickFurniture(event);
-  if (!hit) {
-    state.selectedId = null;
-    rebuildFurnitureMeshes();
-    return;
-  }
-
-  state.selectedId = hit.object.userData.itemId;
-  rebuildFurnitureMeshes();
-
-  const item = findFurniture(state.selectedId);
+function onPointerDown(event, id) {
+  event.preventDefault();
+  const item = findFurniture(id);
   if (!item) return;
 
-  const hitPoint = getFloorIntersection(event);
-  if (!hitPoint) return;
-
+  state.selectedId = id;
+  const p = clientToSvg(event);
   drag.active = true;
   drag.item = item;
-  drag.offset.set(item.x - hitPoint.x, 0, item.z - hitPoint.z);
+  drag.offsetX = item.x - p.x;
+  drag.offsetY = item.y - p.y;
+  rebuildFurniture();
 }
 
 function onPointerMove(event) {
   if (!drag.active || !drag.item) return;
-  const p = getFloorIntersection(event);
-  if (!p) return;
+  const p = clientToSvg(event);
 
   const candidate = {
     ...drag.item,
-    x: snap(p.x + drag.offset.x, POSITION_SNAP),
-    z: snap(p.z + drag.offset.z, POSITION_SNAP),
+    x: snap(p.x + drag.offsetX, POSITION_SNAP),
+    y: snap(p.y + drag.offsetY, POSITION_SNAP),
   };
 
   if (!isValidPlacement(candidate, drag.item.id)) {
-    setStatus("Blocked: collision detected.");
     return;
   }
 
   drag.item.x = candidate.x;
-  drag.item.z = candidate.z;
+  drag.item.y = candidate.y;
   save("apartmentPlannerFurniture", state.furniture);
-  rebuildFurnitureMeshes();
-  setStatus("");
+  rebuildFurniture();
 }
 
 function onPointerUp() {
@@ -494,14 +271,14 @@ function onKeyDown(event) {
   if (!item) return;
 
   if (event.key.toLowerCase() === "r") {
-    const candidate = { ...item, rotationY: item.rotationY + ROTATION_STEP };
+    const candidate = { ...item, rotation: (item.rotation + ROTATION_STEP) % 360 };
     if (!isValidPlacement(candidate, item.id)) {
       setStatus("Rotate blocked: collision detected.");
       return;
     }
-    item.rotationY = candidate.rotationY;
+    item.rotation = candidate.rotation;
     save("apartmentPlannerFurniture", state.furniture);
-    rebuildFurnitureMeshes();
+    rebuildFurniture();
     setStatus("");
   }
 
@@ -509,8 +286,7 @@ function onKeyDown(event) {
     state.furniture = state.furniture.filter((f) => f.id !== state.selectedId);
     state.selectedId = null;
     save("apartmentPlannerFurniture", state.furniture);
-    rebuildFurnitureMeshes();
-    setStatus("Item removed.");
+    rebuildFurniture();
   }
 }
 
@@ -518,48 +294,47 @@ function isValidPlacement(candidate, ignoreId) {
   const candidatePoly = getItemPolygon(candidate, COLLISION_GAP / 2);
 
   for (const corner of candidatePoly) {
-    if (!pointInPolygon({ x: corner.x, z: corner.z }, floorPoints)) {
-      return false;
-    }
+    if (!pointInPolygon(corner, floorPoints)) return false;
   }
 
-  for (const wall of interiorWallColliders) {
-    const wallPoly = getRectPolygon(wall.center.x, wall.center.z, wall.width, wall.depth, wall.angle);
-    if (polygonsIntersect(candidatePoly, wallPoly)) {
-      return false;
-    }
+  for (const wall of interiorWalls) {
+    const length = Math.hypot(wall.b.x - wall.a.x, wall.b.y - wall.a.y);
+    const cx = (wall.a.x + wall.b.x) / 2;
+    const cy = (wall.a.y + wall.b.y) / 2;
+    const angle = toDegrees(Math.atan2(wall.b.y - wall.a.y, wall.b.x - wall.a.x));
+    const wallPoly = getRectPolygon(cx, cy, length, WALL_THICKNESS + COLLISION_GAP, angle);
+    if (polygonsIntersect(candidatePoly, wallPoly)) return false;
   }
 
   for (const other of state.furniture) {
     if (other.id === ignoreId) continue;
     const otherPoly = getItemPolygon(other, COLLISION_GAP / 2);
-    if (polygonsIntersect(candidatePoly, otherPoly)) {
-      return false;
-    }
+    if (polygonsIntersect(candidatePoly, otherPoly)) return false;
   }
 
   return true;
 }
 
 function getItemPolygon(item, inflate = 0) {
-  return getRectPolygon(item.x, item.z, item.width + inflate, item.depth + inflate, item.rotationY);
+  return getRectPolygon(item.x, item.y, item.width + inflate, item.depth + inflate, item.rotation);
 }
 
-function getRectPolygon(cx, cz, width, depth, angle) {
+function getRectPolygon(cx, cy, width, depth, rotationDeg) {
+  const rad = (rotationDeg * Math.PI) / 180;
   const hw = width / 2;
   const hd = depth / 2;
   const corners = [
-    { x: -hw, z: -hd },
-    { x: hw, z: -hd },
-    { x: hw, z: hd },
-    { x: -hw, z: hd },
+    { x: -hw, y: -hd },
+    { x: hw, y: -hd },
+    { x: hw, y: hd },
+    { x: -hw, y: hd },
   ];
 
-  const cos = Math.cos(angle);
-  const sin = Math.sin(angle);
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
   return corners.map((p) => ({
-    x: cx + p.x * cos - p.z * sin,
-    z: cz + p.x * sin + p.z * cos,
+    x: cx + p.x * cos - p.y * sin,
+    y: cy + p.x * sin + p.y * cos,
   }));
 }
 
@@ -568,9 +343,7 @@ function polygonsIntersect(polyA, polyB) {
   for (const axis of axes) {
     const a = project(polyA, axis);
     const b = project(polyB, axis);
-    if (a.max < b.min || b.max < a.min) {
-      return false;
-    }
+    if (a.max < b.min || b.max < a.min) return false;
   }
   return true;
 }
@@ -580,12 +353,10 @@ function getAxes(poly) {
   for (let i = 0; i < poly.length; i += 1) {
     const a = poly[i];
     const b = poly[(i + 1) % poly.length];
-    const edge = { x: b.x - a.x, z: b.z - a.z };
-    const normal = { x: -edge.z, z: edge.x };
-    const length = Math.hypot(normal.x, normal.z);
-    if (length > 0) {
-      axes.push({ x: normal.x / length, z: normal.z / length });
-    }
+    const edge = { x: b.x - a.x, y: b.y - a.y };
+    const normal = { x: -edge.y, y: edge.x };
+    const length = Math.hypot(normal.x, normal.y);
+    if (length > 0) axes.push({ x: normal.x / length, y: normal.y / length });
   }
   return axes;
 }
@@ -594,7 +365,7 @@ function project(poly, axis) {
   let min = Infinity;
   let max = -Infinity;
   for (const p of poly) {
-    const value = p.x * axis.x + p.z * axis.z;
+    const value = p.x * axis.x + p.y * axis.y;
     min = Math.min(min, value);
     max = Math.max(max, value);
   }
@@ -605,56 +376,14 @@ function pointInPolygon(point, polygon) {
   let inside = false;
   for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
     const xi = polygon[i].x;
-    const zi = polygon[i].z;
+    const yi = polygon[i].y;
     const xj = polygon[j].x;
-    const zj = polygon[j].z;
+    const yj = polygon[j].y;
 
-    const intersect =
-      zi > point.z !== zj > point.z &&
-      point.x < ((xj - xi) * (point.z - zi)) / (zj - zi + Number.EPSILON) + xi;
-
+    const intersect = yi > point.y !== yj > point.y && point.x < ((xj - xi) * (point.y - yi)) / (yj - yi + Number.EPSILON) + xi;
     if (intersect) inside = !inside;
   }
   return inside;
-}
-
-function pickFurniture(event) {
-  const rect = renderer.domElement.getBoundingClientRect();
-  pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-  pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-  raycaster.setFromCamera(pointer, camera);
-  const hits = raycaster.intersectObjects(furnitureGroup.children, true);
-  return hits.find((h) => h.object.userData.itemId) || null;
-}
-
-function getFloorIntersection(event) {
-  const rect = renderer.domElement.getBoundingClientRect();
-  pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-  pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-  raycaster.setFromCamera(pointer, camera);
-
-  const p = new THREE.Vector3();
-  const ok = raycaster.ray.intersectPlane(placementPlane, p);
-  return ok ? p : null;
-}
-
-function onAddTrackerItem(event) {
-  event.preventDefault();
-  const item = {
-    id: crypto.randomUUID(),
-    name: document.getElementById("tracker-name").value.trim(),
-    qty: Number(document.getElementById("tracker-qty").value),
-    price: Number(document.getElementById("tracker-price").value),
-    notes: document.getElementById("tracker-notes").value.trim(),
-    status: "needed",
-  };
-
-  state.tracker.push(item);
-  save("apartmentPlannerTracker", state.tracker);
-  renderTracker();
-  event.target.reset();
-  document.getElementById("tracker-qty").value = 1;
-  document.getElementById("tracker-price").value = 0;
 }
 
 function renderTracker() {
@@ -664,8 +393,8 @@ function renderTracker() {
   for (const item of state.tracker) {
     const row = document.createElement("div");
     row.className = "tracker-item";
-
     const total = item.qty * item.price;
+
     row.innerHTML = `
       <div>
         <strong>${escapeHtml(item.name)}</strong>
@@ -687,9 +416,7 @@ function renderTracker() {
       const id = button.dataset.id;
       if (button.dataset.action === "toggle") {
         const target = state.tracker.find((entry) => entry.id === id);
-        if (target) {
-          target.status = target.status === "needed" ? "purchased" : "needed";
-        }
+        if (target) target.status = target.status === "needed" ? "purchased" : "needed";
       }
 
       if (button.dataset.action === "delete") {
@@ -737,8 +464,7 @@ function renderCatalog() {
 
   catalog.querySelectorAll("button[data-action]").forEach((button) => {
     button.addEventListener("click", () => {
-      const id = button.dataset.id;
-      const item = state.catalog.find((entry) => entry.id === id);
+      const item = state.catalog.find((entry) => entry.id === button.dataset.id);
       if (!item) return;
 
       if (button.dataset.action === "place") {
@@ -749,20 +475,19 @@ function renderCatalog() {
           depth: item.depth,
           height: item.height,
           color: item.color,
-          x: controls.target.x,
-          z: controls.target.z,
-          rotationY: 0,
+          x: center.x,
+          y: center.y,
+          rotation: 0,
         };
 
         if (!isValidPlacement(placed, placed.id)) {
-          setStatus("Catalog item cannot be placed at center. Move camera and try manual placement.");
+          setStatus("Catalog item cannot be placed at center.");
           return;
         }
 
         state.furniture.push(placed);
         save("apartmentPlannerFurniture", state.furniture);
-        rebuildFurnitureMeshes();
-        setStatus(`Placed ${item.name} from catalog.`);
+        rebuildFurniture();
       }
 
       if (button.dataset.action === "track") {
@@ -776,7 +501,6 @@ function renderCatalog() {
         });
         save("apartmentPlannerTracker", state.tracker);
         renderTracker();
-        setStatus(`Added ${item.name} to tracker.`);
       }
     });
   });
@@ -793,16 +517,16 @@ function onCatalogImport(event) {
 
   const parsed = parseCatalogText(text);
   if (!parsed.length) {
-    setStatus("No valid rows imported. Check required fields: name,width,depth,height.");
+    setStatus("No valid rows imported. Required: name,width,depth,height.");
     return;
   }
 
-  const existingKeys = new Set(state.catalog.map((item) => normalizeKey(item.name, item.link)));
+  const existing = new Set(state.catalog.map((item) => normalizeKey(item.name, item.link)));
   let added = 0;
   for (const item of parsed) {
     const key = normalizeKey(item.name, item.link);
-    if (existingKeys.has(key)) continue;
-    existingKeys.add(key);
+    if (existing.has(key)) continue;
+    existing.add(key);
     state.catalog.push(item);
     added += 1;
   }
@@ -817,41 +541,34 @@ function onCatalogReset() {
   state.catalog = DEFAULT_CATALOG_ITEMS.map((item) => ({ ...item }));
   save("apartmentPlannerCatalog", state.catalog);
   renderCatalog();
-  setStatus("Catalog reset to default products.");
 }
 
 function parseCatalogText(text) {
   if (text.startsWith("[") || text.startsWith("{")) {
     try {
       const json = JSON.parse(text);
-      const array = Array.isArray(json) ? json : [json];
-      return array.map(normalizeCatalogItem).filter(Boolean);
+      const list = Array.isArray(json) ? json : [json];
+      return list.map(normalizeCatalogItem).filter(Boolean);
     } catch {
       return [];
     }
   }
 
-  const lines = text
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-
+  const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
   if (!lines.length) return [];
 
   const header = parseCSVLine(lines[0]).map((v) => v.toLowerCase());
-  const items = [];
+  const result = [];
 
   for (const line of lines.slice(1)) {
     const cols = parseCSVLine(line);
     const row = {};
-    for (let i = 0; i < header.length; i += 1) {
-      row[header[i]] = cols[i] ?? "";
-    }
-    const normalized = normalizeCatalogItem(row);
-    if (normalized) items.push(normalized);
+    for (let i = 0; i < header.length; i += 1) row[header[i]] = cols[i] ?? "";
+    const item = normalizeCatalogItem(row);
+    if (item) result.push(item);
   }
 
-  return items;
+  return result;
 }
 
 function parseCSVLine(line) {
@@ -861,10 +578,8 @@ function parseCSVLine(line) {
 
   for (let i = 0; i < line.length; i += 1) {
     const ch = line[i];
-
     if (ch === '"') {
-      const isEscaped = inQuotes && line[i + 1] === '"';
-      if (isEscaped) {
+      if (inQuotes && line[i + 1] === '"') {
         current += '"';
         i += 1;
       } else {
@@ -872,13 +587,11 @@ function parseCSVLine(line) {
       }
       continue;
     }
-
     if (ch === "," && !inQuotes) {
       out.push(current.trim());
       current = "";
       continue;
     }
-
     current += ch;
   }
 
@@ -895,26 +608,190 @@ function normalizeCatalogItem(row) {
   const height = Number(row.height);
   if (!(width > 0 && depth > 0 && height > 0)) return null;
 
-  const category = String(row.category ?? "Furniture").trim() || "Furniture";
   const color = validHex(String(row.color ?? "#7b5a3a").trim()) ? String(row.color).trim() : "#7b5a3a";
   const price = Number(row.price);
-  const link = String(row.link ?? "https://www.google.com/search?q=furniture").trim() || "https://www.google.com/search?q=furniture";
-  const image =
-    String(row.image ?? "").trim() ||
-    "https://images.unsplash.com/photo-1484101403633-562f891dc89a?auto=format&fit=crop&w=480&q=80";
 
   return {
     id: crypto.randomUUID(),
     name,
-    category,
+    category: String(row.category ?? "Furniture").trim() || "Furniture",
     width,
     depth,
     height,
     color,
     price: Number.isFinite(price) && price >= 0 ? price : 0,
-    link,
-    image,
+    link: String(row.link ?? "https://www.google.com/search?q=furniture").trim() || "https://www.google.com/search?q=furniture",
+    image: String(row.image ?? "").trim() || "https://images.unsplash.com/photo-1484101403633-562f891dc89a?auto=format&fit=crop&w=480&q=80",
   };
+}
+
+function onAddTrackerItem(event) {
+  event.preventDefault();
+  state.tracker.push({
+    id: crypto.randomUUID(),
+    name: document.getElementById("tracker-name").value.trim(),
+    qty: Number(document.getElementById("tracker-qty").value),
+    price: Number(document.getElementById("tracker-price").value),
+    notes: document.getElementById("tracker-notes").value.trim(),
+    status: "needed",
+  });
+  save("apartmentPlannerTracker", state.tracker);
+  renderTracker();
+  event.target.reset();
+  document.getElementById("tracker-qty").value = 1;
+  document.getElementById("tracker-price").value = 0;
+}
+
+function buildMeasuredFloorPlan() {
+  return centerRawPoints(getRawFloorPlanPoints());
+}
+
+function buildInteriorWallSegments() {
+  const toCentered = rawToCenteredFactory();
+  const xEntryRight = DIM.bedroomWidth + DIM.livingWidth;
+  const zEntryCloset = DIM.totalDepth - 5.2;
+
+  return [
+    { a: toCentered(DIM.bedroomWidth, 0), b: toCentered(DIM.bedroomWidth, DIM.hallDepth) },
+    { a: toCentered(DIM.bedroomWidth + 1.15, 2.2), b: toCentered(DIM.bedroomWidth + 1.15, DIM.dividerRun) },
+    { a: toCentered(DIM.bedroomWidth + 1.15, DIM.dividerRun), b: toCentered(DIM.bedroomWidth, DIM.dividerRun) },
+    { a: toCentered(xEntryRight, DIM.rightDrop), b: toCentered(xEntryRight, DIM.totalDepth) },
+    { a: toCentered(11.0, zEntryCloset), b: toCentered(xEntryRight - DIM.entrySpan, zEntryCloset) },
+  ];
+}
+
+function getRawFloorPlanPoints() {
+  const xEntryRight = DIM.bedroomWidth + DIM.livingWidth;
+  const xEntryLeft = xEntryRight - DIM.entrySpan;
+  const xRightOuter = xEntryRight + DIM.kitchenReturn;
+  const zEntryNotchTop = DIM.totalDepth - 2.8;
+  const zBathNotchTop = DIM.totalDepth - 5.2;
+
+  return [
+    { x: 0, y: 0 },
+    { x: xEntryRight, y: 0 },
+    { x: xEntryRight, y: -DIM.kitchenTopRise },
+    { x: xRightOuter, y: -DIM.kitchenTopRise },
+    { x: xRightOuter, y: DIM.rightDrop },
+    { x: xEntryRight, y: DIM.rightDrop },
+    { x: xEntryRight, y: DIM.totalDepth },
+    { x: xEntryLeft, y: DIM.totalDepth },
+    { x: xEntryLeft, y: zEntryNotchTop },
+    { x: 11.0, y: zEntryNotchTop },
+    { x: 11.0, y: zBathNotchTop },
+    { x: 9.0, y: zBathNotchTop },
+    { x: 9.0, y: DIM.totalDepth },
+    { x: 0, y: DIM.totalDepth },
+  ];
+}
+
+function centerRawPoints(raw) {
+  const ext = getExtents(raw);
+  const cx = (ext.minX + ext.maxX) / 2;
+  const cy = (ext.minY + ext.maxY) / 2;
+  return raw.map((p) => ({ x: p.x - cx, y: p.y - cy }));
+}
+
+function rawToCenteredFactory() {
+  const ext = getExtents(getRawFloorPlanPoints());
+  const cx = (ext.minX + ext.maxX) / 2;
+  const cy = (ext.minY + ext.maxY) / 2;
+  return (x, y) => ({ x: x - cx, y: y - cy });
+}
+
+function getRoomLabels() {
+  const toCentered = rawToCenteredFactory();
+  return [
+    { text: "Bedroom", ...toCentered(4.8, 10.5) },
+    { text: "Living Room", ...toCentered(16.4, 11.2) },
+    { text: "Kitchen", ...toCentered(26.5, 2.8) },
+    { text: "Bathroom", ...toCentered(3.8, 27.2) },
+    { text: "Entry", ...toCentered(16.2, 27.4) },
+  ];
+}
+
+function getDoorArcs() {
+  const toCentered = rawToCenteredFactory();
+  const xEntryRight = DIM.bedroomWidth + DIM.livingWidth;
+  const xEntryLeft = xEntryRight - DIM.entrySpan;
+
+  return [
+    withCentered(10.58, 16.0, 1.2, 90, 180),
+    withCentered(11.2, DIM.totalDepth - 5.2, 1.1, -90, 0),
+    withCentered(xEntryRight, DIM.totalDepth - 3.4, 1.2, 180, 270),
+    withCentered(xEntryLeft + 1.2, DIM.totalDepth, 1.15, -90, 0),
+  ];
+
+  function withCentered(x, y, r, start, end) {
+    const p = toCentered(x, y);
+    return { cx: p.x, cy: p.y, r, start, end };
+  }
+}
+
+function clientToSvg(event) {
+  const pt = svg.createSVGPoint();
+  pt.x = event.clientX;
+  pt.y = event.clientY;
+  return pt.matrixTransform(svg.getScreenCTM().inverse());
+}
+
+function describeArc(cx, cy, r, startDeg, endDeg) {
+  const start = polar(cx, cy, r, endDeg);
+  const end = polar(cx, cy, r, startDeg);
+  const largeArcFlag = Math.abs(endDeg - startDeg) <= 180 ? "0" : "1";
+  return `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArcFlag} 0 ${end.x} ${end.y}`;
+}
+
+function polar(cx, cy, r, deg) {
+  const rad = ((deg - 90) * Math.PI) / 180;
+  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+}
+
+function svgEl(tag, attrs = {}, text = "") {
+  const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  for (const [key, value] of Object.entries(attrs)) el.setAttribute(key, value);
+  if (text) el.textContent = text;
+  return el;
+}
+
+function normalizeFurniture(items) {
+  return items
+    .map((item) => ({
+      ...item,
+      y: Number.isFinite(item.y) ? item.y : Number.isFinite(item.z) ? item.z : center.y,
+      rotation: Number.isFinite(item.rotation) ? item.rotation : Number.isFinite(item.rotationY) ? toDegrees(item.rotationY) : 0,
+    }))
+    .filter((item) => item.width > 0 && item.depth > 0);
+}
+
+function toDegrees(rad) {
+  return (rad * 180) / Math.PI;
+}
+
+function findFurniture(id) {
+  return state.furniture.find((f) => f.id === id) || null;
+}
+
+function loadCatalog() {
+  const stored = load("apartmentPlannerCatalog", []);
+  if (Array.isArray(stored) && stored.length) return stored.map(normalizeCatalogItem).filter(Boolean);
+  return DEFAULT_CATALOG_ITEMS.map((item) => ({ ...item }));
+}
+
+function getExtents(points) {
+  return points.reduce(
+    (acc, p) => ({
+      minX: Math.min(acc.minX, p.x),
+      maxX: Math.max(acc.maxX, p.x),
+      minY: Math.min(acc.minY, p.y),
+      maxY: Math.max(acc.maxY, p.y),
+    }),
+    { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity }
+  );
+}
+
+function setStatus(text) {
+  statusEl.textContent = text;
 }
 
 function validHex(value) {
@@ -925,96 +802,8 @@ function normalizeKey(name, link) {
   return `${String(name).trim().toLowerCase()}|${String(link).trim().toLowerCase()}`;
 }
 
-function buildCameraPresets() {
-  const toCentered = rawToCenteredFactory();
-  return {
-    top: {
-      position: new THREE.Vector3(0, 44, 0),
-      target: new THREE.Vector3(0, 0, 12),
-    },
-    living: {
-      position: new THREE.Vector3(toCentered(16.0, 10.0).x + 5, 14, toCentered(16.0, 10.0).z + 7),
-      target: new THREE.Vector3(toCentered(16.0, 10.0).x, 0, toCentered(16.0, 10.0).z),
-    },
-    bedroom: {
-      position: new THREE.Vector3(toCentered(4.8, 10.5).x + 5.5, 13, toCentered(4.8, 10.5).z + 5.5),
-      target: new THREE.Vector3(toCentered(4.8, 10.5).x, 0, toCentered(4.8, 10.5).z),
-    },
-    kitchen: {
-      position: new THREE.Vector3(toCentered(26.6, 2.4).x - 5, 11, toCentered(26.6, 2.4).z + 4),
-      target: new THREE.Vector3(toCentered(26.6, 2.4).x, 0, toCentered(26.6, 2.4).z),
-    },
-    entry: {
-      position: new THREE.Vector3(toCentered(16.2, 27.4).x + 2.5, 11, toCentered(16.2, 27.4).z + 6),
-      target: new THREE.Vector3(toCentered(16.2, 27.4).x, 0, toCentered(16.2, 27.4).z),
-    },
-  };
-}
-
-function wireViewButtons() {
-  bindViewButton("view-top", "top");
-  bindViewButton("view-living", "living");
-  bindViewButton("view-bedroom", "bedroom");
-  bindViewButton("view-kitchen", "kitchen");
-  bindViewButton("view-entry", "entry");
-}
-
-function bindViewButton(id, presetName) {
-  const btn = document.getElementById(id);
-  if (!btn) return;
-  btn.addEventListener("click", () => applyCameraPreset(presetName));
-}
-
-function applyCameraPreset(name) {
-  const preset = cameraPresets[name];
-  if (!preset) return;
-  camera.position.copy(preset.position);
-  controls.target.copy(preset.target);
-  controls.update();
-}
-
-function animate() {
-  requestAnimationFrame(animate);
-  controls.update();
-  renderer.render(scene, camera);
-}
-
-function onResize() {
-  camera.aspect = viewer.clientWidth / viewer.clientHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(viewer.clientWidth, viewer.clientHeight);
-}
-
-function findFurniture(id) {
-  return state.furniture.find((f) => f.id === id) || null;
-}
-
-function setStatus(text) {
-  statusEl.textContent = text;
-}
-
 function snap(value, step) {
   return Math.round(value / step) * step;
-}
-
-function getExtents(points) {
-  return points.reduce(
-    (acc, p) => ({
-      minX: Math.min(acc.minX, p.x),
-      maxX: Math.max(acc.maxX, p.x),
-      minZ: Math.min(acc.minZ, p.z),
-      maxZ: Math.max(acc.maxZ, p.z),
-    }),
-    { minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity }
-  );
-}
-
-function loadCatalog() {
-  const stored = load("apartmentPlannerCatalog", []);
-  if (Array.isArray(stored) && stored.length) {
-    return stored.map((item) => normalizeCatalogItem(item)).filter(Boolean);
-  }
-  return DEFAULT_CATALOG_ITEMS.map((item) => ({ ...item }));
 }
 
 function load(key, fallback) {

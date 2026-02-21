@@ -138,26 +138,46 @@ kbd {
 
 .viewer-wrap {
   position: relative;
-}
-
-.view-presets {
-  position: absolute;
-  z-index: 10;
-  top: 0.75rem;
-  left: 0.75rem;
-  display: flex;
-  gap: 0.35rem;
-  flex-wrap: wrap;
-  max-width: calc(100% - 1.5rem);
-}
-
-.view-presets button {
-  padding: 0.4rem 0.65rem;
+  background: #e8edf3;
 }
 
 #viewer {
   width: 100%;
   height: 100vh;
+}
+
+.plan-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  background: #f4f7fb;
+}
+
+.room-label {
+  fill: #1e293b;
+  font-size: 0.9px;
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
+}
+
+.furniture-label {
+  fill: #ffffff;
+  font-size: 0.42px;
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
+}
+
+.furniture-item {
+  cursor: move;
+}
+
+.furniture-item.selected rect {
+  stroke: #f97316;
+  stroke-width: 0.1;
 }
 
 .catalog-import {
@@ -253,10 +273,5 @@ kbd {
 
   #viewer {
     height: 60vh;
-  }
-
-  .view-presets {
-    top: 0.4rem;
-    left: 0.4rem;
   }
 }
