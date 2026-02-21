@@ -14,6 +14,9 @@ const DIM = {
   livingWidth: 13.5,
   kitchenReturn: 4 + 7 / 12,
   entrySpan: 9 + 7 / 12,
+  totalDepth: 30,
+  rightDrop: 15,
+  kitchenTopRise: 4.5,
   hallDepth: 16,
   dividerRun: 11 + 11 / 12,
 };
@@ -214,6 +217,8 @@ function buildMeasuredFloorPlan() {
 
 function buildInteriorWallSegments() {
   const toCentered = rawToCenteredFactory();
+  const xEntryRight = DIM.bedroomWidth + DIM.livingWidth;
+  const zEntryCloset = DIM.totalDepth - 5.2;
 
   return [
     { a: toCentered(DIM.bedroomWidth, 0), b: toCentered(DIM.bedroomWidth, DIM.hallDepth) },
@@ -222,38 +227,33 @@ function buildInteriorWallSegments() {
       a: toCentered(DIM.bedroomWidth + 1.15, DIM.dividerRun),
       b: toCentered(DIM.bedroomWidth, DIM.dividerRun),
     },
-    {
-      a: toCentered(20.8, 9.5),
-      b: toCentered(20.8, 21.5),
-    },
-    { a: toCentered(16.0, 16.8), b: toCentered(11.0, 16.8) },
+    { a: toCentered(xEntryRight, DIM.rightDrop), b: toCentered(xEntryRight, DIM.totalDepth) },
+    { a: toCentered(11.0, zEntryCloset), b: toCentered(xEntryRight - DIM.entrySpan, zEntryCloset) },
   ];
 }
 
 function getRawFloorPlanPoints() {
-  const xKitchenLeft = DIM.bedroomWidth + DIM.livingWidth + 0.9;
-  const xKitchenRight = xKitchenLeft + 5.0;
-  const xRightInset = xKitchenRight - DIM.kitchenReturn;
-  const xEntryRight = 21.0;
+  const xEntryRight = DIM.bedroomWidth + DIM.livingWidth;
   const xEntryLeft = xEntryRight - DIM.entrySpan;
+  const xRightOuter = xEntryRight + DIM.kitchenReturn;
+  const zEntryNotchTop = DIM.totalDepth - 2.8;
+  const zBathNotchTop = DIM.totalDepth - 5.2;
 
   return [
     { x: 0, z: 0 },
-    { x: xKitchenLeft, z: 0 },
-    { x: xKitchenLeft, z: -4.5 },
-    { x: xKitchenRight, z: -4.5 },
-    { x: xKitchenRight, z: 9.5 },
-    { x: xRightInset, z: 9.5 },
-    { x: xRightInset, z: 21.5 },
-    { x: xEntryRight, z: 21.5 },
-    { x: xEntryRight, z: 18.8 },
-    { x: xEntryLeft, z: 18.8 },
-    { x: xEntryLeft, z: 16.8 },
-    { x: 11.0, z: 16.8 },
-    { x: 11.0, z: 17.8 },
-    { x: 9.0, z: 17.8 },
-    { x: 9.0, z: 21.5 },
-    { x: 0, z: 21.5 },
+    { x: xEntryRight, z: 0 },
+    { x: xEntryRight, z: -DIM.kitchenTopRise },
+    { x: xRightOuter, z: -DIM.kitchenTopRise },
+    { x: xRightOuter, z: DIM.rightDrop },
+    { x: xEntryRight, z: DIM.rightDrop },
+    { x: xEntryRight, z: DIM.totalDepth },
+    { x: xEntryLeft, z: DIM.totalDepth },
+    { x: xEntryLeft, z: zEntryNotchTop },
+    { x: 11.0, z: zEntryNotchTop },
+    { x: 11.0, z: zBathNotchTop },
+    { x: 9.0, z: zBathNotchTop },
+    { x: 9.0, z: DIM.totalDepth },
+    { x: 0, z: DIM.totalDepth },
   ];
 }
 
@@ -314,11 +314,11 @@ function addWallSegment(a, b, color) {
 function addRoomLabels() {
   const toCentered = rawToCenteredFactory();
   const labels = [
-    { text: "Bedroom", x: 4.8, z: 9.5 },
-    { text: "Living Room", x: 15.6, z: 8.8 },
-    { text: "Kitchen", x: 27.1, z: 1.2 },
-    { text: "Bathroom", x: 3.8, z: 19.0 },
-    { text: "Entry", x: 16.4, z: 20.0 },
+    { text: "Bedroom", x: 4.8, z: 10.5 },
+    { text: "Living Room", x: 16.4, z: 11.2 },
+    { text: "Kitchen", x: 26.5, z: 2.8 },
+    { text: "Bathroom", x: 3.8, z: 27.2 },
+    { text: "Entry", x: 16.2, z: 27.4 },
   ];
 
   for (const label of labels) {
@@ -354,11 +354,13 @@ function makeLabelSprite(text) {
 
 function addDoorSwings() {
   const toCentered = rawToCenteredFactory();
+  const xEntryRight = DIM.bedroomWidth + DIM.livingWidth;
+  const xEntryLeft = xEntryRight - DIM.entrySpan;
 
   addDoorSwing(10.58, 16.0, 1.2, Math.PI / 2, Math.PI, toCentered);
-  addDoorSwing(11.2, 17.8, 1.1, -Math.PI / 2, 0, toCentered);
-  addDoorSwing(21.0, 20.0, 1.2, Math.PI, Math.PI * 1.5, toCentered);
-  addDoorSwing(15.8, 21.5, 1.15, -Math.PI / 2, 0, toCentered);
+  addDoorSwing(11.2, DIM.totalDepth - 5.2, 1.1, -Math.PI / 2, 0, toCentered);
+  addDoorSwing(xEntryRight, DIM.totalDepth - 3.4, 1.2, Math.PI, Math.PI * 1.5, toCentered);
+  addDoorSwing(xEntryLeft + 1.2, DIM.totalDepth, 1.15, -Math.PI / 2, 0, toCentered);
 }
 
 function addDoorSwing(rawX, rawZ, radius, startAngle, endAngle, toCentered) {
@@ -928,23 +930,23 @@ function buildCameraPresets() {
   return {
     top: {
       position: new THREE.Vector3(0, 44, 0),
-      target: new THREE.Vector3(0, 0, 8),
+      target: new THREE.Vector3(0, 0, 12),
     },
     living: {
-      position: new THREE.Vector3(toCentered(15.6, 6.5).x + 5, 14, toCentered(15.6, 6.5).z + 7),
-      target: new THREE.Vector3(toCentered(15.6, 6.5).x, 0, toCentered(15.6, 6.5).z),
+      position: new THREE.Vector3(toCentered(16.0, 10.0).x + 5, 14, toCentered(16.0, 10.0).z + 7),
+      target: new THREE.Vector3(toCentered(16.0, 10.0).x, 0, toCentered(16.0, 10.0).z),
     },
     bedroom: {
-      position: new THREE.Vector3(toCentered(4.8, 9.8).x + 5.5, 13, toCentered(4.8, 9.8).z + 5.5),
-      target: new THREE.Vector3(toCentered(4.8, 9.8).x, 0, toCentered(4.8, 9.8).z),
+      position: new THREE.Vector3(toCentered(4.8, 10.5).x + 5.5, 13, toCentered(4.8, 10.5).z + 5.5),
+      target: new THREE.Vector3(toCentered(4.8, 10.5).x, 0, toCentered(4.8, 10.5).z),
     },
     kitchen: {
-      position: new THREE.Vector3(toCentered(26.8, 1.6).x - 5, 11, toCentered(26.8, 1.6).z + 4),
-      target: new THREE.Vector3(toCentered(26.8, 1.6).x, 0, toCentered(26.8, 1.6).z),
+      position: new THREE.Vector3(toCentered(26.6, 2.4).x - 5, 11, toCentered(26.6, 2.4).z + 4),
+      target: new THREE.Vector3(toCentered(26.6, 2.4).x, 0, toCentered(26.6, 2.4).z),
     },
     entry: {
-      position: new THREE.Vector3(toCentered(16.4, 20).x + 2.5, 11, toCentered(16.4, 20).z + 6),
-      target: new THREE.Vector3(toCentered(16.4, 20).x, 0, toCentered(16.4, 20).z),
+      position: new THREE.Vector3(toCentered(16.2, 27.4).x + 2.5, 11, toCentered(16.2, 27.4).z + 6),
+      target: new THREE.Vector3(toCentered(16.2, 27.4).x, 0, toCentered(16.2, 27.4).z),
     },
   };
 }
