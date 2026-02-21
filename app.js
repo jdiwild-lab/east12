@@ -13,27 +13,28 @@ const DIM = {
   bedroomDepth: 12 + 5 / 12,
   livingWidth: 13.5,
   kitchenReturn: 4 + 7 / 12,
-  kitchenLeg: 8,
-  denWidth: 9 + 7 / 12,
+  entrySpan: 9 + 7 / 12,
+  hallDepth: 16,
+  dividerRun: 11 + 11 / 12,
 };
 
-const CATALOG_ITEMS = [
+const DEFAULT_CATALOG_ITEMS = [
   {
     id: "cat-sofa-1",
-    name: "3-Seat Sofa",
+    name: "IKEA KIVIK Sofa",
     category: "Furniture",
-    width: 7.2,
+    width: 7.5,
     depth: 3.1,
-    height: 3,
+    height: 2.9,
     color: "#8f4a31",
     price: 899,
     image:
       "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=480&q=80",
-    link: "https://www.ikea.com/",
+    link: "https://www.ikea.com/us/en/search/?q=KIVIK",
   },
   {
     id: "cat-tv-1",
-    name: "65in OLED TV",
+    name: "LG 65in OLED TV",
     category: "Tech",
     width: 4.8,
     depth: 0.35,
@@ -42,11 +43,11 @@ const CATALOG_ITEMS = [
     price: 1699,
     image:
       "https://images.unsplash.com/photo-1593784991095-a205069470b6?auto=format&fit=crop&w=480&q=80",
-    link: "https://www.bestbuy.com/",
+    link: "https://www.bestbuy.com/site/searchpage.jsp?st=65+oled",
   },
   {
     id: "cat-table-1",
-    name: "Dining Table",
+    name: "West Elm Dining Table",
     category: "Furniture",
     width: 6,
     depth: 3.2,
@@ -55,11 +56,11 @@ const CATALOG_ITEMS = [
     price: 650,
     image:
       "https://images.unsplash.com/photo-1577140917170-285929fb55b7?auto=format&fit=crop&w=480&q=80",
-    link: "https://www.wayfair.com/",
+    link: "https://www.westelm.com/shop/furniture/dining-tables/",
   },
   {
     id: "cat-bed-1",
-    name: "Queen Bed Frame",
+    name: "CB2 Queen Bed Frame",
     category: "Furniture",
     width: 5.2,
     depth: 6.8,
@@ -68,11 +69,11 @@ const CATALOG_ITEMS = [
     price: 799,
     image:
       "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=480&q=80",
-    link: "https://www.cb2.com/",
+    link: "https://www.cb2.com/furniture/beds/1",
   },
   {
     id: "cat-desk-1",
-    name: "Work Desk",
+    name: "Herman Miller Desk",
     category: "Furniture",
     width: 4.5,
     depth: 2.2,
@@ -81,11 +82,11 @@ const CATALOG_ITEMS = [
     price: 420,
     image:
       "https://images.unsplash.com/photo-1518455027359-f3f8164ba6bd?auto=format&fit=crop&w=480&q=80",
-    link: "https://www.hermanmiller.com/",
+    link: "https://store.hermanmiller.com/home-office-desks/",
   },
   {
     id: "cat-speaker-1",
-    name: "Bookshelf Speakers",
+    name: "Sonos Pair",
     category: "Tech",
     width: 1.2,
     depth: 1.2,
@@ -94,13 +95,14 @@ const CATALOG_ITEMS = [
     price: 499,
     image:
       "https://images.unsplash.com/photo-1545454675-3531b543be5d?auto=format&fit=crop&w=480&q=80",
-    link: "https://www.sonos.com/",
+    link: "https://www.sonos.com/en-us/shop",
   },
 ];
 
 const state = {
   furniture: load("apartmentPlannerFurniture", []),
   tracker: load("apartmentPlannerTracker", []),
+  catalog: loadCatalog(),
   selectedId: null,
 };
 
@@ -136,6 +138,9 @@ scene.add(apartmentGroup);
 const furnitureGroup = new THREE.Group();
 scene.add(furnitureGroup);
 
+const annotationGroup = new THREE.Group();
+scene.add(annotationGroup);
+
 const floorPoints = buildMeasuredFloorPlan();
 const floorShape = shapeFromPoints(floorPoints);
 const floorMesh = new THREE.Mesh(
@@ -149,6 +154,8 @@ apartmentGroup.add(floorMesh);
 const interiorWalls = buildInteriorWallSegments();
 addPerimeterWalls(floorPoints);
 addInteriorWalls(interiorWalls);
+addRoomLabels();
+addDoorSwings();
 
 const grid = new THREE.GridHelper(90, 90, 0x9ca3af, 0xd1d5db);
 grid.position.y = 0.01;
@@ -161,7 +168,6 @@ const drag = {
   active: false,
   item: null,
   offset: new THREE.Vector3(),
-  lastValid: null,
 };
 
 const interiorWallColliders = interiorWalls.map((segment) => {
@@ -182,6 +188,8 @@ const interiorWallColliders = interiorWalls.map((segment) => {
 const extents = getExtents(floorPoints);
 controls.target.set((extents.minX + extents.maxX) / 2, 0, (extents.minZ + extents.maxZ) / 2);
 
+const cameraPresets = buildCameraPresets();
+
 renderCatalog();
 rebuildFurnitureMeshes();
 renderTracker();
@@ -193,58 +201,74 @@ window.addEventListener("resize", onResize);
 window.addEventListener("keydown", onKeyDown);
 document.getElementById("furniture-form").addEventListener("submit", onAddFurniture);
 document.getElementById("tracker-form").addEventListener("submit", onAddTrackerItem);
+document.getElementById("catalog-import-form").addEventListener("submit", onCatalogImport);
+document.getElementById("catalog-reset-btn").addEventListener("click", onCatalogReset);
+wireViewButtons();
 
 animate();
 
 function buildMeasuredFloorPlan() {
-  // Coordinates are in feet, derived from your measured sketch labels.
-  const raw = [
-    { x: 0, z: 0 },
-    { x: DIM.bedroomWidth + DIM.livingWidth + DIM.kitchenReturn, z: 0 },
-    { x: DIM.bedroomWidth + DIM.livingWidth + DIM.kitchenReturn, z: DIM.kitchenLeg },
-    { x: DIM.bedroomWidth + DIM.livingWidth, z: DIM.kitchenLeg },
-    { x: DIM.bedroomWidth + DIM.livingWidth, z: 20 },
-    { x: DIM.bedroomWidth + DIM.livingWidth - DIM.denWidth, z: 20 },
-    { x: DIM.bedroomWidth + DIM.livingWidth - DIM.denWidth, z: 16 },
-    { x: 8, z: 16 },
-    { x: 8, z: 20 },
-    { x: 0, z: 20 },
-    { x: 0, z: 20 - DIM.bedroomDepth },
-    { x: DIM.bedroomWidth, z: 20 - DIM.bedroomDepth },
-    { x: DIM.bedroomWidth, z: 0 },
-  ];
+  const raw = getRawFloorPlanPoints();
+  return centerRawPoints(raw);
+}
 
+function buildInteriorWallSegments() {
+  const toCentered = rawToCenteredFactory();
+
+  return [
+    { a: toCentered(DIM.bedroomWidth, 0), b: toCentered(DIM.bedroomWidth, DIM.hallDepth) },
+    { a: toCentered(DIM.bedroomWidth + 1.15, 2.2), b: toCentered(DIM.bedroomWidth + 1.15, DIM.dividerRun) },
+    {
+      a: toCentered(DIM.bedroomWidth + 1.15, DIM.dividerRun),
+      b: toCentered(DIM.bedroomWidth, DIM.dividerRun),
+    },
+    {
+      a: toCentered(20.8, 9.5),
+      b: toCentered(20.8, 21.5),
+    },
+    { a: toCentered(16.0, 16.8), b: toCentered(11.0, 16.8) },
+  ];
+}
+
+function getRawFloorPlanPoints() {
+  const xKitchenLeft = DIM.bedroomWidth + DIM.livingWidth + 0.9;
+  const xKitchenRight = xKitchenLeft + 5.0;
+  const xRightInset = xKitchenRight - DIM.kitchenReturn;
+  const xEntryRight = 21.0;
+  const xEntryLeft = xEntryRight - DIM.entrySpan;
+
+  return [
+    { x: 0, z: 0 },
+    { x: xKitchenLeft, z: 0 },
+    { x: xKitchenLeft, z: -4.5 },
+    { x: xKitchenRight, z: -4.5 },
+    { x: xKitchenRight, z: 9.5 },
+    { x: xRightInset, z: 9.5 },
+    { x: xRightInset, z: 21.5 },
+    { x: xEntryRight, z: 21.5 },
+    { x: xEntryRight, z: 18.8 },
+    { x: xEntryLeft, z: 18.8 },
+    { x: xEntryLeft, z: 16.8 },
+    { x: 11.0, z: 16.8 },
+    { x: 11.0, z: 17.8 },
+    { x: 9.0, z: 17.8 },
+    { x: 9.0, z: 21.5 },
+    { x: 0, z: 21.5 },
+  ];
+}
+
+function centerRawPoints(raw) {
   const ext = getExtents(raw);
   const cx = (ext.minX + ext.maxX) / 2;
   const cz = (ext.minZ + ext.maxZ) / 2;
   return raw.map((p) => ({ x: p.x - cx, z: p.z - cz }));
 }
 
-function buildInteriorWallSegments() {
-  // Interior partitions approximating dividers/closets from your sketch.
-  return [
-    { a: pointByRaw(DIM.bedroomWidth, 0), b: pointByRaw(DIM.bedroomWidth, 16) },
-    {
-      a: pointByRaw(DIM.bedroomWidth, 16),
-      b: pointByRaw(DIM.bedroomWidth + DIM.livingWidth - DIM.denWidth, 16),
-    },
-    {
-      a: pointByRaw(DIM.bedroomWidth + DIM.livingWidth - DIM.denWidth, 16),
-      b: pointByRaw(DIM.bedroomWidth + DIM.livingWidth - DIM.denWidth, 20),
-    },
-  ];
-
-  function pointByRaw(x, z) {
-    const ext = getExtents(
-      [
-        { x: 0, z: 0 },
-        { x: DIM.bedroomWidth + DIM.livingWidth + DIM.kitchenReturn, z: 20 },
-      ]
-    );
-    const cx = (ext.minX + ext.maxX) / 2;
-    const cz = (ext.minZ + ext.maxZ) / 2;
-    return { x: x - cx, z: z - cz };
-  }
+function rawToCenteredFactory() {
+  const ext = getExtents(getRawFloorPlanPoints());
+  const cx = (ext.minX + ext.maxX) / 2;
+  const cz = (ext.minZ + ext.maxZ) / 2;
+  return (x, z) => ({ x: x - cx, z: z - cz });
 }
 
 function shapeFromPoints(points) {
@@ -285,6 +309,72 @@ function addWallSegment(a, b, color) {
   mesh.position.set((a.x + b.x) / 2, WALL_HEIGHT / 2, (a.z + b.z) / 2);
   mesh.rotation.y = -Math.atan2(dz, dx);
   apartmentGroup.add(mesh);
+}
+
+function addRoomLabels() {
+  const toCentered = rawToCenteredFactory();
+  const labels = [
+    { text: "Bedroom", x: 4.8, z: 9.5 },
+    { text: "Living Room", x: 15.6, z: 8.8 },
+    { text: "Kitchen", x: 27.1, z: 1.2 },
+    { text: "Bathroom", x: 3.8, z: 19.0 },
+    { text: "Entry", x: 16.4, z: 20.0 },
+  ];
+
+  for (const label of labels) {
+    const p = toCentered(label.x, label.z);
+    const sprite = makeLabelSprite(label.text);
+    sprite.position.set(p.x, 5.2, p.z);
+    sprite.scale.set(3.9, 1.2, 1);
+    annotationGroup.add(sprite);
+  }
+}
+
+function makeLabelSprite(text) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 512;
+  canvas.height = 160;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "rgba(255,255,255,0.78)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = "rgba(30,41,59,0.45)";
+  ctx.lineWidth = 4;
+  ctx.strokeRect(2, 2, canvas.width - 4, canvas.height - 4);
+  ctx.fillStyle = "#0f172a";
+  ctx.font = "700 64px 'Source Sans 3'";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false });
+  return new THREE.Sprite(mat);
+}
+
+function addDoorSwings() {
+  const toCentered = rawToCenteredFactory();
+
+  addDoorSwing(10.58, 16.0, 1.2, Math.PI / 2, Math.PI, toCentered);
+  addDoorSwing(11.2, 17.8, 1.1, -Math.PI / 2, 0, toCentered);
+  addDoorSwing(21.0, 20.0, 1.2, Math.PI, Math.PI * 1.5, toCentered);
+  addDoorSwing(15.8, 21.5, 1.15, -Math.PI / 2, 0, toCentered);
+}
+
+function addDoorSwing(rawX, rawZ, radius, startAngle, endAngle, toCentered) {
+  const center = toCentered(rawX, rawZ);
+  const arc = new THREE.EllipseCurve(0, 0, radius, radius, startAngle, endAngle, false, 0);
+  const points = arc.getPoints(24).map((p) => new THREE.Vector3(center.x + p.x, 0.08, center.z + p.y));
+  const geom = new THREE.BufferGeometry().setFromPoints(points);
+  const line = new THREE.Line(geom, new THREE.LineBasicMaterial({ color: 0x475569 }));
+  annotationGroup.add(line);
+
+  const doorEnd = points[points.length - 1];
+  const hingeToLeaf = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(center.x, 0.08, center.z),
+    new THREE.Vector3(doorEnd.x, 0.08, doorEnd.z),
+  ]);
+  annotationGroup.add(new THREE.Line(hingeToLeaf, new THREE.LineBasicMaterial({ color: 0x64748b })));
 }
 
 function onAddFurniture(event) {
@@ -365,7 +455,6 @@ function onPointerDown(event) {
 
   drag.active = true;
   drag.item = item;
-  drag.lastValid = { x: item.x, z: item.z };
   drag.offset.set(item.x - hitPoint.x, 0, item.z - hitPoint.z);
 }
 
@@ -387,7 +476,6 @@ function onPointerMove(event) {
 
   drag.item.x = candidate.x;
   drag.item.z = candidate.z;
-  drag.lastValid = { x: candidate.x, z: candidate.z };
   save("apartmentPlannerFurniture", state.furniture);
   rebuildFurnitureMeshes();
   setStatus("");
@@ -396,7 +484,6 @@ function onPointerMove(event) {
 function onPointerUp() {
   drag.active = false;
   drag.item = null;
-  drag.lastValid = null;
 }
 
 function onKeyDown(event) {
@@ -628,14 +715,14 @@ function renderCatalog() {
   const catalog = document.getElementById("catalog");
   catalog.innerHTML = "";
 
-  for (const item of CATALOG_ITEMS) {
+  for (const item of state.catalog) {
     const card = document.createElement("article");
     card.className = "catalog-item";
     card.innerHTML = `
       <img src="${item.image}" alt="${escapeHtml(item.name)}" loading="lazy" />
       <div>
         <strong>${escapeHtml(item.name)}</strong>
-        <small>${item.category} • ${item.width.toFixed(1)}' x ${item.depth.toFixed(1)}' • $${item.price}</small>
+        <small>${item.category} • ${item.width.toFixed(1)}' x ${item.depth.toFixed(1)}' • $${item.price.toFixed(2)}</small>
       </div>
       <div class="catalog-actions">
         <button data-action="place" data-id="${item.id}">Place</button>
@@ -649,7 +736,7 @@ function renderCatalog() {
   catalog.querySelectorAll("button[data-action]").forEach((button) => {
     button.addEventListener("click", () => {
       const id = button.dataset.id;
-      const item = CATALOG_ITEMS.find((entry) => entry.id === id);
+      const item = state.catalog.find((entry) => entry.id === id);
       if (!item) return;
 
       if (button.dataset.action === "place") {
@@ -693,6 +780,197 @@ function renderCatalog() {
   });
 }
 
+function onCatalogImport(event) {
+  event.preventDefault();
+  const input = document.getElementById("catalog-import-input");
+  const text = input.value.trim();
+  if (!text) {
+    setStatus("Paste CSV/JSON rows before importing.");
+    return;
+  }
+
+  const parsed = parseCatalogText(text);
+  if (!parsed.length) {
+    setStatus("No valid rows imported. Check required fields: name,width,depth,height.");
+    return;
+  }
+
+  const existingKeys = new Set(state.catalog.map((item) => normalizeKey(item.name, item.link)));
+  let added = 0;
+  for (const item of parsed) {
+    const key = normalizeKey(item.name, item.link);
+    if (existingKeys.has(key)) continue;
+    existingKeys.add(key);
+    state.catalog.push(item);
+    added += 1;
+  }
+
+  save("apartmentPlannerCatalog", state.catalog);
+  renderCatalog();
+  input.value = "";
+  setStatus(`Catalog import complete: ${added} item(s) added.`);
+}
+
+function onCatalogReset() {
+  state.catalog = DEFAULT_CATALOG_ITEMS.map((item) => ({ ...item }));
+  save("apartmentPlannerCatalog", state.catalog);
+  renderCatalog();
+  setStatus("Catalog reset to default products.");
+}
+
+function parseCatalogText(text) {
+  if (text.startsWith("[") || text.startsWith("{")) {
+    try {
+      const json = JSON.parse(text);
+      const array = Array.isArray(json) ? json : [json];
+      return array.map(normalizeCatalogItem).filter(Boolean);
+    } catch {
+      return [];
+    }
+  }
+
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (!lines.length) return [];
+
+  const header = parseCSVLine(lines[0]).map((v) => v.toLowerCase());
+  const items = [];
+
+  for (const line of lines.slice(1)) {
+    const cols = parseCSVLine(line);
+    const row = {};
+    for (let i = 0; i < header.length; i += 1) {
+      row[header[i]] = cols[i] ?? "";
+    }
+    const normalized = normalizeCatalogItem(row);
+    if (normalized) items.push(normalized);
+  }
+
+  return items;
+}
+
+function parseCSVLine(line) {
+  const out = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i += 1) {
+    const ch = line[i];
+
+    if (ch === '"') {
+      const isEscaped = inQuotes && line[i + 1] === '"';
+      if (isEscaped) {
+        current += '"';
+        i += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (ch === "," && !inQuotes) {
+      out.push(current.trim());
+      current = "";
+      continue;
+    }
+
+    current += ch;
+  }
+
+  out.push(current.trim());
+  return out;
+}
+
+function normalizeCatalogItem(row) {
+  const name = String(row.name ?? "").trim();
+  if (!name) return null;
+
+  const width = Number(row.width);
+  const depth = Number(row.depth);
+  const height = Number(row.height);
+  if (!(width > 0 && depth > 0 && height > 0)) return null;
+
+  const category = String(row.category ?? "Furniture").trim() || "Furniture";
+  const color = validHex(String(row.color ?? "#7b5a3a").trim()) ? String(row.color).trim() : "#7b5a3a";
+  const price = Number(row.price);
+  const link = String(row.link ?? "https://www.google.com/search?q=furniture").trim() || "https://www.google.com/search?q=furniture";
+  const image =
+    String(row.image ?? "").trim() ||
+    "https://images.unsplash.com/photo-1484101403633-562f891dc89a?auto=format&fit=crop&w=480&q=80";
+
+  return {
+    id: crypto.randomUUID(),
+    name,
+    category,
+    width,
+    depth,
+    height,
+    color,
+    price: Number.isFinite(price) && price >= 0 ? price : 0,
+    link,
+    image,
+  };
+}
+
+function validHex(value) {
+  return /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(value);
+}
+
+function normalizeKey(name, link) {
+  return `${String(name).trim().toLowerCase()}|${String(link).trim().toLowerCase()}`;
+}
+
+function buildCameraPresets() {
+  const toCentered = rawToCenteredFactory();
+  return {
+    top: {
+      position: new THREE.Vector3(0, 44, 0),
+      target: new THREE.Vector3(0, 0, 8),
+    },
+    living: {
+      position: new THREE.Vector3(toCentered(15.6, 6.5).x + 5, 14, toCentered(15.6, 6.5).z + 7),
+      target: new THREE.Vector3(toCentered(15.6, 6.5).x, 0, toCentered(15.6, 6.5).z),
+    },
+    bedroom: {
+      position: new THREE.Vector3(toCentered(4.8, 9.8).x + 5.5, 13, toCentered(4.8, 9.8).z + 5.5),
+      target: new THREE.Vector3(toCentered(4.8, 9.8).x, 0, toCentered(4.8, 9.8).z),
+    },
+    kitchen: {
+      position: new THREE.Vector3(toCentered(26.8, 1.6).x - 5, 11, toCentered(26.8, 1.6).z + 4),
+      target: new THREE.Vector3(toCentered(26.8, 1.6).x, 0, toCentered(26.8, 1.6).z),
+    },
+    entry: {
+      position: new THREE.Vector3(toCentered(16.4, 20).x + 2.5, 11, toCentered(16.4, 20).z + 6),
+      target: new THREE.Vector3(toCentered(16.4, 20).x, 0, toCentered(16.4, 20).z),
+    },
+  };
+}
+
+function wireViewButtons() {
+  bindViewButton("view-top", "top");
+  bindViewButton("view-living", "living");
+  bindViewButton("view-bedroom", "bedroom");
+  bindViewButton("view-kitchen", "kitchen");
+  bindViewButton("view-entry", "entry");
+}
+
+function bindViewButton(id, presetName) {
+  const btn = document.getElementById(id);
+  if (!btn) return;
+  btn.addEventListener("click", () => applyCameraPreset(presetName));
+}
+
+function applyCameraPreset(name) {
+  const preset = cameraPresets[name];
+  if (!preset) return;
+  camera.position.copy(preset.position);
+  controls.target.copy(preset.target);
+  controls.update();
+}
+
 function animate() {
   requestAnimationFrame(animate);
   controls.update();
@@ -727,6 +1005,14 @@ function getExtents(points) {
     }),
     { minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity }
   );
+}
+
+function loadCatalog() {
+  const stored = load("apartmentPlannerCatalog", []);
+  if (Array.isArray(stored) && stored.length) {
+    return stored.map((item) => normalizeCatalogItem(item)).filter(Boolean);
+  }
+  return DEFAULT_CATALOG_ITEMS.map((item) => ({ ...item }));
 }
 
 function load(key, fallback) {

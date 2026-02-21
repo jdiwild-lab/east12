@@ -82,6 +82,16 @@ input {
   font: inherit;
 }
 
+textarea {
+  width: 100%;
+  margin-top: 0.25rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.5rem 0.55rem;
+  font: inherit;
+  resize: vertical;
+}
+
 .row-2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -130,9 +140,28 @@ kbd {
   position: relative;
 }
 
+.view-presets {
+  position: absolute;
+  z-index: 10;
+  top: 0.75rem;
+  left: 0.75rem;
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  max-width: calc(100% - 1.5rem);
+}
+
+.view-presets button {
+  padding: 0.4rem 0.65rem;
+}
+
 #viewer {
   width: 100%;
   height: 100vh;
+}
+
+.catalog-import {
+  margin-bottom: 0.85rem;
 }
 
 .catalog {
@@ -224,5 +253,10 @@ kbd {
 
   #viewer {
     height: 60vh;
+  }
+
+  .view-presets {
+    top: 0.4rem;
+    left: 0.4rem;
   }
 }

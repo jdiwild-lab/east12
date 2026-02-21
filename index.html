@@ -23,9 +23,11 @@
           <div class="dimensions">
             <div><strong>Ceiling height:</strong> 9'0"</div>
             <div><strong>Bedroom span:</strong> 10'7" x 12'5"</div>
-            <div><strong>Living span:</strong> 13'6"</div>
-            <div><strong>Kitchen leg:</strong> 8'0" and 4'7" return</div>
-            <div><strong>Office/Den span:</strong> 9'7"</div>
+            <div><strong>Living run:</strong> 13'6"</div>
+            <div><strong>Hall depth:</strong> 16'0"</div>
+            <div><strong>Divider run:</strong> 11'11" + 16" closet lip</div>
+            <div><strong>Kitchen return:</strong> 4'7" and ~8'0" leg</div>
+            <div><strong>Entry span:</strong> 9'7"</div>
           </div>
           <p class="hint">If you want exact final dimensions, send one photo that clearly shows each wall label and I can tune this to inch-level.</p>
         </section>
@@ -63,6 +65,16 @@
 
         <section class="card">
           <h2>Catalog (Furniture + Tech)</h2>
+          <form id="catalog-import-form" class="catalog-import">
+            <label>
+              Import Products (CSV or JSON)
+              <textarea id="catalog-import-input" rows="5" placeholder="CSV header: name,category,width,depth,height,price,color,link,image"></textarea>
+            </label>
+            <div class="row-2">
+              <button type="submit">Import Items</button>
+              <button id="catalog-reset-btn" type="button" class="ghost">Reset Catalog</button>
+            </div>
+          </form>
           <div id="catalog" class="catalog"></div>
         </section>
 
@@ -95,6 +107,13 @@
       </aside>
 
       <main class="viewer-wrap">
+        <div class="view-presets">
+          <button id="view-top" type="button">Top</button>
+          <button id="view-living" type="button" class="ghost">Living</button>
+          <button id="view-bedroom" type="button" class="ghost">Bedroom</button>
+          <button id="view-kitchen" type="button" class="ghost">Kitchen</button>
+          <button id="view-entry" type="button" class="ghost">Entry</button>
+        </div>
         <div id="viewer"></div>
       </main>
     </div>
