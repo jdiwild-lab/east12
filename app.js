@@ -19,6 +19,20 @@ const ROOM = {
   BATH: { width: 8.0, depth: 6.0 },
 };
 
+const PLAN_REFERENCE = {
+  imageSrc: "./floorplan-reference.png",
+  imageWidthPx: 1200,
+  imageHeightPx: 849,
+  calibration: {
+    // Two known dimensions from the plan (living room 19'11" and 17'4")
+    originPx: { x: 500, y: 186 }, // living room NW interior corner
+    xRefPx: { x: 892, y: 186 }, // living room NE interior corner
+    zRefPx: { x: 500, y: 434 }, // living room SW interior corner
+    xDistanceIn: 239,
+    zDistanceIn: 208,
+  },
+};
+
 const OPENING_SPEC = {
   ceilingHeightIn: 114,
   wallThickness: { exteriorIn: 8, interiorIn: 4.5 },
@@ -33,7 +47,7 @@ const OPENING_SPEC = {
       widthIn: 36,
       heightIn: 80,
       wall: "FOYER_SOUTH",
-      offsetFromWallStartIn: 0,
+      hingePlanPx: { x: 760, y: 627 },
       hinge: "left",
       swing: "in",
     },
@@ -43,7 +57,7 @@ const OPENING_SPEC = {
       widthIn: 30,
       heightIn: 80,
       wall: "BED_LIVING",
-      offsetFromWallStartIn: 150,
+      hingePlanPx: { x: 499, y: 386 },
       hinge: "right",
       swing: "in",
     },
@@ -53,7 +67,7 @@ const OPENING_SPEC = {
       widthIn: 30,
       heightIn: 80,
       wall: "BATH_FOYER",
-      offsetFromWallStartIn: 0,
+      hingePlanPx: { x: 293, y: 577 },
       hinge: "left",
       swing: "in",
     },
@@ -63,7 +77,7 @@ const OPENING_SPEC = {
       widthIn: 48,
       heightIn: 80,
       wall: "BED_LIVING",
-      offsetFromWallStartIn: 24,
+      hingePlanPx: { x: 499, y: 260 },
       hinge: "left",
       swing: "in",
     },
@@ -73,7 +87,7 @@ const OPENING_SPEC = {
       widthIn: 24,
       heightIn: 80,
       wall: "LIVING_FOYER",
-      offsetFromWallStartIn: 4,
+      hingePlanPx: { x: 857, y: 452 },
       hinge: "left",
       swing: "in",
     },
@@ -83,7 +97,7 @@ const OPENING_SPEC = {
       widthIn: 24,
       heightIn: 80,
       wall: "LIVING_FOYER",
-      offsetFromWallStartIn: 40,
+      hingePlanPx: { x: 857, y: 531 },
       hinge: "left",
       swing: "in",
     },
@@ -93,7 +107,7 @@ const OPENING_SPEC = {
       widthIn: 24,
       heightIn: 80,
       wall: "LIVING_FOYER",
-      offsetFromWallStartIn: 76,
+      hingePlanPx: { x: 857, y: 604 },
       hinge: "left",
       swing: "in",
     },
@@ -104,7 +118,7 @@ const OPENING_SPEC = {
       heightIn: 60,
       sillHeightIn: 24,
       wall: "BEDROOM_WEST",
-      centerOffsetFromWallStartIn: 96,
+      centerPlanPx: { x: 145, y: 331 },
     },
     {
       type: "window",
@@ -113,7 +127,7 @@ const OPENING_SPEC = {
       heightIn: 60,
       sillHeightIn: 24,
       wall: "BEDROOM_NORTH",
-      centerOffsetFromWallStartIn: 63,
+      centerPlanPx: { x: 365, y: 186 },
     },
     {
       type: "window",
@@ -122,7 +136,7 @@ const OPENING_SPEC = {
       heightIn: 60,
       sillHeightIn: 24,
       wall: "BEDROOM_NORTH",
-      centerOffsetFromWallStartIn: 127,
+      centerPlanPx: { x: 463, y: 186 },
     },
     {
       type: "window",
@@ -131,7 +145,7 @@ const OPENING_SPEC = {
       heightIn: 60,
       sillHeightIn: 24,
       wall: "LIVING_NORTH",
-      centerOffsetFromWallStartIn: 60,
+      centerPlanPx: { x: 620, y: 186 },
     },
     {
       type: "window",
@@ -140,7 +154,7 @@ const OPENING_SPEC = {
       heightIn: 60,
       sillHeightIn: 24,
       wall: "LIVING_NORTH",
-      centerOffsetFromWallStartIn: 120,
+      centerPlanPx: { x: 735, y: 186 },
     },
     {
       type: "window",
@@ -149,7 +163,7 @@ const OPENING_SPEC = {
       heightIn: 60,
       sillHeightIn: 24,
       wall: "LIVING_NORTH",
-      centerOffsetFromWallStartIn: 180,
+      centerPlanPx: { x: 846, y: 186 },
     },
     {
       type: "window",
@@ -158,7 +172,7 @@ const OPENING_SPEC = {
       heightIn: 60,
       sillHeightIn: 24,
       wall: "KITCHEN_NORTH",
-      centerOffsetFromWallStartIn: 48,
+      centerPlanPx: { x: 946, y: 102 },
     },
     {
       type: "window",
@@ -167,7 +181,7 @@ const OPENING_SPEC = {
       heightIn: 60,
       sillHeightIn: 24,
       wall: "BATH_WEST",
-      centerOffsetFromWallStartIn: 36,
+      centerPlanPx: { x: 145, y: 548 },
     },
   ],
 };
@@ -212,6 +226,18 @@ const DEFAULT_CATALOG_ITEMS = [
 ];
 
 const RAW = buildRawGeometry();
+window.apartmentOpeningOffsets = RAW.openings.map((opening) => ({
+  type: opening.type,
+  id: opening.id,
+  wall: opening.wallId,
+  widthIn: opening.widthIn,
+  heightIn: opening.heightIn,
+  sillHeightIn: opening.sillHeightIn,
+  offsetFromWallStartIn: opening.offsetFromWallStartIn,
+  centerOffsetFromWallStartIn: opening.centerOffsetFromWallStartIn,
+  hinge: opening.hinge,
+  swing: opening.swing,
+}));
 
 const state = {
   furniture: loadFurniture(),
@@ -259,6 +285,7 @@ floorMesh.rotation.x = -Math.PI / 2;
 floorMesh.receiveShadow = true;
 apartmentGroup.add(floorMesh);
 
+addPlanReferenceUnderlay(RAW.planCalibration);
 buildWallsWithOpenings(RAW.walls, RAW.openings);
 addRoomLabels();
 addDoorSwings();
@@ -356,7 +383,8 @@ function buildRawGeometry() {
     b: { x: wall.b.x - center.x, z: wall.b.z - center.z },
   }));
 
-  const openings = resolveOpenings(OPENING_SPEC, walls);
+  const planCalibration = createPlanCalibration(center, x1, zTop);
+  const openings = resolveOpenings(OPENING_SPEC, walls, planCalibration);
   const interiorWalls = walls.filter((wall) => wall.kind === "interior");
 
   return {
@@ -365,6 +393,7 @@ function buildRawGeometry() {
     walls,
     interiorWalls,
     openings,
+    planCalibration,
     rooms: {
       bedroom: toCenteredPoint(ROOM.BEDROOM.width * 0.5, ROOM.BEDROOM.depth * 0.52, center),
       living: toCenteredPoint(x1 + ROOM.LIVING.width * 0.5, ROOM.LIVING.depth * 0.5, center),
@@ -375,17 +404,100 @@ function buildRawGeometry() {
   };
 }
 
-function resolveOpenings(spec, walls) {
+function createPlanCalibration(center, livingStartX, livingStartZ) {
+  const c = PLAN_REFERENCE.calibration;
+  const o = c.originPx;
+  const x = c.xRefPx;
+  const z = c.zRefPx;
+
+  const pxX = { x: x.x - o.x, y: x.y - o.y };
+  const pxZ = { x: z.x - o.x, y: z.y - o.y };
+  const det = pxX.x * pxZ.y - pxX.y * pxZ.x;
+  const safeDet = Math.abs(det) < 1e-6 ? 1 : det;
+
+  const worldOrigin = { x: livingStartX - center.x, z: livingStartZ - center.z };
+  const worldXAxis = { x: inchesToFeet(c.xDistanceIn), z: 0 };
+  const worldZAxis = { x: 0, z: inchesToFeet(c.zDistanceIn) };
+
+  return {
+    image: {
+      src: PLAN_REFERENCE.imageSrc,
+      widthPx: PLAN_REFERENCE.imageWidthPx,
+      heightPx: PLAN_REFERENCE.imageHeightPx,
+    },
+    originPx: o,
+    invPixelBasis: {
+      m00: pxZ.y / safeDet,
+      m01: -pxZ.x / safeDet,
+      m10: -pxX.y / safeDet,
+      m11: pxX.x / safeDet,
+    },
+    worldOrigin,
+    worldXAxis,
+    worldZAxis,
+  };
+}
+
+function planPxToWorld(px, calibration) {
+  const dx = px.x - calibration.originPx.x;
+  const dy = px.y - calibration.originPx.y;
+  const a = calibration.invPixelBasis.m00 * dx + calibration.invPixelBasis.m01 * dy;
+  const b = calibration.invPixelBasis.m10 * dx + calibration.invPixelBasis.m11 * dy;
+  return {
+    x: calibration.worldOrigin.x + calibration.worldXAxis.x * a + calibration.worldZAxis.x * b,
+    z: calibration.worldOrigin.z + calibration.worldXAxis.z * a + calibration.worldZAxis.z * b,
+  };
+}
+
+function projectPointToWall(point, wall) {
+  const dx = wall.b.x - wall.a.x;
+  const dz = wall.b.z - wall.a.z;
+  const len2 = dx * dx + dz * dz;
+  if (len2 <= 1e-9) return { offsetFt: 0, distanceFt: Infinity };
+  const tRaw = ((point.x - wall.a.x) * dx + (point.z - wall.a.z) * dz) / len2;
+  const t = THREE.MathUtils.clamp(tRaw, 0, 1);
+  const projX = wall.a.x + dx * t;
+  const projZ = wall.a.z + dz * t;
+  return {
+    offsetFt: Math.hypot(projX - wall.a.x, projZ - wall.a.z),
+    distanceFt: Math.hypot(point.x - projX, point.z - projZ),
+  };
+}
+
+function snapPlanPointToWall(planPointPx, walls, calibration, wallHint) {
+  const worldPoint = planPxToWorld(planPointPx, calibration);
+  let best = null;
+  for (const wall of walls) {
+    const proj = projectPointToWall(worldPoint, wall);
+    if (!best || proj.distanceFt < best.distanceFt) best = { wall, ...proj, sourceHint: wallHint ?? null };
+  }
+  return best;
+}
+
+function resolveOpenings(spec, walls, planCalibration) {
   const wallMap = new Map(walls.map((wall) => [wall.id, wall]));
   return spec.openings
     .map((opening) => {
-      const wall = wallMap.get(opening.wall);
+      let snapped = null;
+      if (opening.type === "door" && opening.hingePlanPx) {
+        snapped = snapPlanPointToWall(opening.hingePlanPx, walls, planCalibration, opening.wall);
+      }
+      if (opening.type === "window" && opening.centerPlanPx) {
+        snapped = snapPlanPointToWall(opening.centerPlanPx, walls, planCalibration, opening.wall);
+      }
+
+      const wall = snapped?.wall ?? wallMap.get(opening.wall);
       if (!wall) return null;
       const widthFt = inchesToFeet(opening.widthIn ?? spec.defaults.window.widthIn);
       const wallLen = wallLength(wall);
+      const hingeOffsetFallbackFt = inchesToFeet(opening.offsetFromWallStartIn ?? 0);
       const startFt = opening.type === "door"
-        ? inchesToFeet(opening.offsetFromWallStartIn ?? 0)
-        : inchesToFeet((opening.centerOffsetFromWallStartIn ?? 0) - opening.widthIn / 2);
+        ? (opening.hinge === "left"
+          ? (snapped?.offsetFt ?? hingeOffsetFallbackFt)
+          : (snapped?.offsetFt ?? hingeOffsetFallbackFt) - widthFt)
+        : (snapped
+          ? snapped.offsetFt - widthFt / 2
+          : inchesToFeet((opening.centerOffsetFromWallStartIn ?? 0) - opening.widthIn / 2));
       const clampedStart = THREE.MathUtils.clamp(startFt, 0, wallLen);
       const clampedEnd = THREE.MathUtils.clamp(clampedStart + widthFt, 0, wallLen);
       if (clampedEnd - clampedStart < 0.02) return null;
@@ -397,6 +509,7 @@ function resolveOpenings(spec, walls) {
           wall,
           startOffsetFt: clampedStart,
           endOffsetFt: clampedEnd,
+          offsetFromWallStartIn: Math.round(clampedStart * INCHES_PER_FOOT),
           bottomFt: 0,
           topFt: inchesToFeet(opening.heightIn ?? spec.defaults.doorHeightIn),
         };
@@ -410,11 +523,63 @@ function resolveOpenings(spec, walls) {
         wall,
         startOffsetFt: clampedStart,
         endOffsetFt: clampedEnd,
+        centerOffsetFromWallStartIn: Math.round(((clampedStart + clampedEnd) / 2) * INCHES_PER_FOOT),
         bottomFt: sill,
         topFt: sill + height,
       };
     })
     .filter(Boolean);
+}
+
+function addPlanReferenceUnderlay(calibration) {
+  if (!calibration?.image?.src) return;
+  const textureLoader = new THREE.TextureLoader();
+  textureLoader.load(
+    calibration.image.src,
+    (texture) => {
+      const w = calibration.image.widthPx;
+      const h = calibration.image.heightPx;
+      const p00 = planPxToWorld({ x: 0, y: 0 }, calibration);
+      const p10 = planPxToWorld({ x: w, y: 0 }, calibration);
+      const p11 = planPxToWorld({ x: w, y: h }, calibration);
+      const p01 = planPxToWorld({ x: 0, y: h }, calibration);
+
+      const geometry = new THREE.BufferGeometry();
+      const vertices = new Float32Array([
+        p00.x, 0.02, p00.z,
+        p10.x, 0.02, p10.z,
+        p11.x, 0.02, p11.z,
+        p01.x, 0.02, p01.z,
+      ]);
+      const uvs = new Float32Array([
+        0, 1,
+        1, 1,
+        1, 0,
+        0, 0,
+      ]);
+      geometry.setAttribute("position", new THREE.BufferAttribute(vertices, 3));
+      geometry.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
+      geometry.setIndex([0, 1, 2, 0, 2, 3]);
+      geometry.computeVertexNormals();
+
+      const mesh = new THREE.Mesh(
+        geometry,
+        new THREE.MeshBasicMaterial({
+          map: texture,
+          transparent: true,
+          opacity: 0.42,
+          depthWrite: false,
+          side: THREE.DoubleSide,
+        })
+      );
+      mesh.renderOrder = -1;
+      apartmentGroup.add(mesh);
+    },
+    undefined,
+    () => {
+      setStatus('Reference image not loaded. Place "floorplan-reference.png" next to index.html.');
+    }
+  );
 }
 
 function buildWallsWithOpenings(walls, openings) {
