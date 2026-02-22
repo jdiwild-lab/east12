@@ -146,38 +146,10 @@ kbd {
   height: 100vh;
 }
 
-.plan-svg {
+#viewer canvas {
   width: 100%;
   height: 100%;
   display: block;
-  background: #f4f7fb;
-}
-
-.room-label {
-  fill: #1e293b;
-  font-size: 0.9px;
-  font-weight: 700;
-  text-anchor: middle;
-  dominant-baseline: middle;
-  pointer-events: none;
-}
-
-.furniture-label {
-  fill: #ffffff;
-  font-size: 0.42px;
-  font-weight: 700;
-  text-anchor: middle;
-  dominant-baseline: middle;
-  pointer-events: none;
-}
-
-.furniture-item {
-  cursor: move;
-}
-
-.furniture-item.selected rect {
-  stroke: #f97316;
-  stroke-width: 0.1;
 }
 
 .catalog-import {

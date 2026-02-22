@@ -16,21 +16,17 @@
     <div class="app-shell">
       <aside class="sidebar">
         <h1>Apartment Planner</h1>
-        <p class="subtitle">2D layout + furniture planning + purchase tracker</p>
+        <p class="subtitle">3D layout + furniture planning + purchase tracker</p>
 
         <section class="card">
           <h2>Measured Layout</h2>
           <div class="dimensions">
-            <div><strong>Bedroom span:</strong> 10'7" x 12'5"</div>
-            <div><strong>Living run:</strong> 13'6"</div>
-            <div><strong>Total depth:</strong> 30'0"</div>
-            <div><strong>Right-side drop:</strong> 15'0"</div>
-            <div><strong>Hall depth:</strong> 16'0"</div>
-            <div><strong>Divider run:</strong> 11'11" + 16" closet lip</div>
-            <div><strong>Kitchen return:</strong> 4'7"</div>
-            <div><strong>Entry span:</strong> 9'7"</div>
+            <div><strong>Bedroom:</strong> 15'10" x 16'0"</div>
+            <div><strong>Living Room:</strong> 19'11" x 17'4"</div>
+            <div><strong>Ceiling height:</strong> 9'0" (assumed)</div>
+            <div><strong>Kitchen / foyer / bath:</strong> traced from provided plan</div>
           </div>
-          <p class="hint">If you want exact final dimensions, send one photo that clearly shows each wall label and I can tune this to inch-level.</p>
+          <p class="hint">You can send more measurements later and I can tighten this to exact wall-by-wall dimensions.</p>
         </section>
 
         <section class="card">
@@ -67,7 +63,7 @@
             </label>
             <button type="submit">Add From Link</button>
           </form>
-          <p class="hint">Controls: drag to move, <kbd>R</kbd> to rotate selected, <kbd>Delete</kbd> to remove selected.</p>
+          <p class="hint">Controls: drag item to move, <kbd>R</kbd> to rotate selected, <kbd>Delete</kbd> to remove selected.</p>
           <p id="status" class="status"></p>
         </section>
 
@@ -119,6 +115,14 @@
       </main>
     </div>
 
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.164.1/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.164.1/examples/jsm/"
+        }
+      }
+    </script>
     <script type="module" src="app.js"></script>
   </body>
 </html>
