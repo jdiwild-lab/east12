@@ -1,12 +1,16 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
-const CEILING_HEIGHT = 9.5;
-const EXTERIOR_WALL_THICKNESS = 8 / 12;
-const INTERIOR_WALL_THICKNESS = 4.5 / 12;
-const POSITION_SNAP = 0.25;
+const INCHES_PER_FOOT = 12;
+const CEILING_HEIGHT_IN = 114;
+const WALL_THICKNESS_IN = { exteriorIn: 8, interiorIn: 4.5 };
+const POSITION_SNAP_IN = 3;
 const ROTATION_STEP = Math.PI / 2;
 const COLLISION_GAP = 0.2;
+const CEILING_HEIGHT = inchesToFeet(CEILING_HEIGHT_IN);
+const EXTERIOR_WALL_THICKNESS = inchesToFeet(WALL_THICKNESS_IN.exteriorIn);
+const INTERIOR_WALL_THICKNESS = inchesToFeet(WALL_THICKNESS_IN.interiorIn);
+const POSITION_SNAP = inchesToFeet(POSITION_SNAP_IN);
 
 const ROOM = {
   BEDROOM: { width: 15.83, depth: 16.0 },
@@ -15,10 +19,157 @@ const ROOM = {
   BATH: { width: 8.0, depth: 6.0 },
 };
 
-const DOOR = {
-  ENTRY: 3.0,
-  INTERIOR: 2.5,
-  CLOSET: 2.0,
+const OPENING_SPEC = {
+  ceilingHeightIn: 114,
+  wallThickness: { exteriorIn: 8, interiorIn: 4.5 },
+  defaults: {
+    doorHeightIn: 80,
+    window: { widthIn: 48, heightIn: 60, sillHeightIn: 24 },
+  },
+  openings: [
+    {
+      type: "door",
+      id: "entry",
+      widthIn: 36,
+      heightIn: 80,
+      wall: "FOYER_SOUTH",
+      offsetFromWallStartIn: 0,
+      hinge: "left",
+      swing: "in",
+    },
+    {
+      type: "door",
+      id: "bedroom_entry",
+      widthIn: 30,
+      heightIn: 80,
+      wall: "BED_LIVING",
+      offsetFromWallStartIn: 150,
+      hinge: "right",
+      swing: "in",
+    },
+    {
+      type: "door",
+      id: "bath_entry",
+      widthIn: 30,
+      heightIn: 80,
+      wall: "BATH_FOYER",
+      offsetFromWallStartIn: 0,
+      hinge: "left",
+      swing: "in",
+    },
+    {
+      type: "door",
+      id: "bedroom_closet_double",
+      widthIn: 48,
+      heightIn: 80,
+      wall: "BED_LIVING",
+      offsetFromWallStartIn: 24,
+      hinge: "left",
+      swing: "in",
+    },
+    {
+      type: "door",
+      id: "foyer_closet_1",
+      widthIn: 24,
+      heightIn: 80,
+      wall: "LIVING_FOYER",
+      offsetFromWallStartIn: 4,
+      hinge: "left",
+      swing: "in",
+    },
+    {
+      type: "door",
+      id: "foyer_closet_2",
+      widthIn: 24,
+      heightIn: 80,
+      wall: "LIVING_FOYER",
+      offsetFromWallStartIn: 40,
+      hinge: "left",
+      swing: "in",
+    },
+    {
+      type: "door",
+      id: "foyer_closet_3",
+      widthIn: 24,
+      heightIn: 80,
+      wall: "LIVING_FOYER",
+      offsetFromWallStartIn: 76,
+      hinge: "left",
+      swing: "in",
+    },
+    {
+      type: "window",
+      id: "bedroom_west_1",
+      widthIn: 48,
+      heightIn: 60,
+      sillHeightIn: 24,
+      wall: "BEDROOM_WEST",
+      centerOffsetFromWallStartIn: 96,
+    },
+    {
+      type: "window",
+      id: "bedroom_north_1",
+      widthIn: 48,
+      heightIn: 60,
+      sillHeightIn: 24,
+      wall: "BEDROOM_NORTH",
+      centerOffsetFromWallStartIn: 63,
+    },
+    {
+      type: "window",
+      id: "bedroom_north_2",
+      widthIn: 48,
+      heightIn: 60,
+      sillHeightIn: 24,
+      wall: "BEDROOM_NORTH",
+      centerOffsetFromWallStartIn: 127,
+    },
+    {
+      type: "window",
+      id: "living_north_1",
+      widthIn: 48,
+      heightIn: 60,
+      sillHeightIn: 24,
+      wall: "LIVING_NORTH",
+      centerOffsetFromWallStartIn: 60,
+    },
+    {
+      type: "window",
+      id: "living_north_2",
+      widthIn: 48,
+      heightIn: 60,
+      sillHeightIn: 24,
+      wall: "LIVING_NORTH",
+      centerOffsetFromWallStartIn: 120,
+    },
+    {
+      type: "window",
+      id: "living_north_3",
+      widthIn: 48,
+      heightIn: 60,
+      sillHeightIn: 24,
+      wall: "LIVING_NORTH",
+      centerOffsetFromWallStartIn: 180,
+    },
+    {
+      type: "window",
+      id: "kitchen_north_1",
+      widthIn: 48,
+      heightIn: 60,
+      sillHeightIn: 24,
+      wall: "KITCHEN_NORTH",
+      centerOffsetFromWallStartIn: 48,
+    },
+    {
+      type: "window",
+      id: "bath_west_1",
+      widthIn: 48,
+      heightIn: 60,
+      sillHeightIn: 24,
+      wall: "BATH_WEST",
+      centerOffsetFromWallStartIn: 36,
+    },
+  ],
 };
 
 const DEFAULT_CATALOG_ITEMS = [
@@ -108,12 +259,10 @@ floorMesh.rotation.x = -Math.PI / 2;
 floorMesh.receiveShadow = true;
 apartmentGroup.add(floorMesh);
 
-addWallSegments(RAW.perimeterWalls, EXTERIOR_WALL_THICKNESS, "#f8fafc");
-addWallSegments(RAW.interiorWalls, INTERIOR_WALL_THICKNESS, "#e6edf6");
+buildWallsWithOpenings(RAW.walls, RAW.openings);
 addRoomLabels();
-addWindowMarkers();
 addDoorSwings();
-addDoorWidthLabels();
+addWindowGlazing();
 
 const grid = new THREE.GridHelper(100, 100, 0xa8b1bc, 0xd5dce5);
 grid.position.y = 0.01;
@@ -180,35 +329,42 @@ function buildRawGeometry() {
     { x: x0, z: zBathBottom },
   ];
 
-  const interiorRaw = [
-    // Bedroom/Living divider.
-    { a: { x: x1, z: zTop }, b: { x: x1, z: zBedroomBottom } },
-    // Living/Foyer divider.
-    { a: { x: 20, z: zLivingBottom }, b: { x: 20, z: zFoyerBottom } },
-    // Bath/Foyer divider top.
-    { a: { x: 8, z: zBedroomBottom }, b: { x: 20, z: zBedroomBottom } },
-    // Kitchen/Living divider.
-    { a: { x: x2, z: zKitchenBottom }, b: { x: x2, z: zLivingBottom } },
+  const wallsRaw = [
+    { id: "BEDROOM_NORTH", kind: "exterior", a: { x: x0, z: zTop }, b: { x: x1, z: zTop } },
+    { id: "LIVING_NORTH", kind: "exterior", a: { x: x1, z: zTop }, b: { x: x2, z: zTop } },
+    { id: "KITCHEN_NORTH", kind: "exterior", a: { x: x2, z: zTop }, b: { x: x3, z: zTop } },
+    { id: "KITCHEN_EAST", kind: "exterior", a: { x: x3, z: zTop }, b: { x: x3, z: zKitchenBottom } },
+    { id: "KITCHEN_SOUTH", kind: "exterior", a: { x: x3, z: zKitchenBottom }, b: { x: x2, z: zKitchenBottom } },
+    { id: "FOYER_EAST", kind: "exterior", a: { x: x2, z: zKitchenBottom }, b: { x: x2, z: zFoyerBottom } },
+    { id: "FOYER_SOUTH", kind: "exterior", a: { x: x2, z: zFoyerBottom }, b: { x: 20, z: zFoyerBottom } },
+    { id: "WEST_BATH_FOYER", kind: "interior", a: { x: 20, z: zFoyerBottom }, b: { x: 20, z: zBathBottom } },
+    { id: "BATH_SOUTH", kind: "exterior", a: { x: 20, z: zBathBottom }, b: { x: 0, z: zBathBottom } },
+    { id: "BATH_WEST", kind: "exterior", a: { x: x0, z: zBathBottom }, b: { x: x0, z: zBedroomBottom } },
+    { id: "BEDROOM_WEST", kind: "exterior", a: { x: x0, z: zBedroomBottom }, b: { x: x0, z: zTop } },
+    { id: "BED_LIVING", kind: "interior", a: { x: x1, z: zTop }, b: { x: x1, z: zBedroomBottom } },
+    { id: "LIVING_FOYER", kind: "interior", a: { x: 20, z: zLivingBottom }, b: { x: 20, z: zFoyerBottom } },
+    { id: "BATH_FOYER", kind: "interior", a: { x: 8, z: zBedroomBottom }, b: { x: 20, z: zBedroomBottom } },
+    { id: "KITCHEN_LIVING", kind: "interior", a: { x: x2, z: zKitchenBottom }, b: { x: x2, z: zLivingBottom } },
   ];
 
   const centeredFloor = centerPoints(floorRaw);
   const center = getCenter(floorRaw);
 
-  const centeredInterior = interiorRaw.map((s) => ({
-    a: { x: s.a.x - center.x, z: s.a.z - center.z },
-    b: { x: s.b.x - center.x, z: s.b.z - center.z },
+  const walls = wallsRaw.map((wall) => ({
+    ...wall,
+    a: { x: wall.a.x - center.x, z: wall.a.z - center.z },
+    b: { x: wall.b.x - center.x, z: wall.b.z - center.z },
   }));
 
-  const perimeter = [];
-  for (let i = 0; i < centeredFloor.length; i += 1) {
-    perimeter.push({ a: centeredFloor[i], b: centeredFloor[(i + 1) % centeredFloor.length] });
-  }
+  const openings = resolveOpenings(OPENING_SPEC, walls);
+  const interiorWalls = walls.filter((wall) => wall.kind === "interior");
 
   return {
     center,
     floor: centeredFloor,
-    perimeterWalls: perimeter,
-    interiorWalls: centeredInterior,
+    walls,
+    interiorWalls,
+    openings,
     rooms: {
       bedroom: toCenteredPoint(ROOM.BEDROOM.width * 0.5, ROOM.BEDROOM.depth * 0.52, center),
       living: toCenteredPoint(x1 + ROOM.LIVING.width * 0.5, ROOM.LIVING.depth * 0.5, center),
@@ -216,71 +372,128 @@ function buildRawGeometry() {
       bath: toCenteredPoint(ROOM.BATH.width * 0.5, zBedroomBottom + ROOM.BATH.depth * 0.5, center),
       foyer: toCenteredPoint(x1 + ROOM.LIVING.width * 0.6, 22, center),
     },
-    windows: [
-      // Bedroom left wall: 1 @ 3 ft
-      wallWindows({ x: x0, z1: 2.5, z2: 13.5, count: 1, length: 3, axis: "z", center }),
-      // Bedroom top wall: 2 @ 3.5 ft
-      wallWindows({ x1: 2, x2: x1 - 2, z: zTop, count: 2, length: 3.5, axis: "x", center }),
-      // Living top wall: 3 @ 3.5 ft
-      wallWindows({ x1: x1 + 1.5, x2: x2 - 1.5, z: zTop, count: 3, length: 3.5, axis: "x", center }),
-      // Kitchen top wall: 1 @ 3 ft
-      wallWindows({ x1: x2 + 1.2, x2: x3 - 1.2, z: zTop, count: 1, length: 3, axis: "x", center }),
-      // Bathroom left wall: 1 @ 2.5 ft
-      wallWindows({ x: x0, z1: zBedroomBottom + 1, z2: zBathBottom - 1, count: 1, length: 2.5, axis: "z", center }),
-    ].flat(),
-    doorSwings: [
-      // Entry door
-      swing(26, zFoyerBottom, DOOR.ENTRY / 2, 180, 270, center),
-      // Interior door bedroom->living
-      swing(x1, 14.4, DOOR.INTERIOR / 2, 180, 270, center),
-      // Interior bath door
-      swing(8, zBedroomBottom, DOOR.INTERIOR / 2, 0, 90, center),
-      // Closet doors (approximate)
-      swing(x1 - 0.2, 5.6, DOOR.CLOSET / 2, -90, 0, center),
-      swing(x2 + 0.1, 19.5, DOOR.CLOSET / 2, 180, 270, center),
-      swing(x2 + 0.1, 22.4, DOOR.CLOSET / 2, 180, 270, center),
-      swing(x2 + 0.1, 25.2, DOOR.CLOSET / 2, 180, 270, center),
-    ],
   };
 }
 
-function wallWindows({ x, x1, x2, z, z1, z2, count, length, axis, center }) {
-  const windows = [];
-  if (axis === "x") {
-    const span = x2 - x1;
-    const gap = span / (count + 1);
-    for (let i = 1; i <= count; i += 1) {
-      windows.push({ x: x1 + gap * i - center.x, z: z - center.z, len: length, axis: "x" });
-    }
-  } else {
-    const span = z2 - z1;
-    const gap = span / (count + 1);
-    for (let i = 1; i <= count; i += 1) {
-      windows.push({ x: x - center.x, z: z1 + gap * i - center.z, len: length, axis: "z" });
-    }
+function resolveOpenings(spec, walls) {
+  const wallMap = new Map(walls.map((wall) => [wall.id, wall]));
+  return spec.openings
+    .map((opening) => {
+      const wall = wallMap.get(opening.wall);
+      if (!wall) return null;
+      const widthFt = inchesToFeet(opening.widthIn ?? spec.defaults.window.widthIn);
+      const wallLen = wallLength(wall);
+      const startFt = opening.type === "door"
+        ? inchesToFeet(opening.offsetFromWallStartIn ?? 0)
+        : inchesToFeet((opening.centerOffsetFromWallStartIn ?? 0) - opening.widthIn / 2);
+      const clampedStart = THREE.MathUtils.clamp(startFt, 0, wallLen);
+      const clampedEnd = THREE.MathUtils.clamp(clampedStart + widthFt, 0, wallLen);
+      if (clampedEnd - clampedStart < 0.02) return null;
+
+      if (opening.type === "door") {
+        return {
+          ...opening,
+          wallId: wall.id,
+          wall,
+          startOffsetFt: clampedStart,
+          endOffsetFt: clampedEnd,
+          bottomFt: 0,
+          topFt: inchesToFeet(opening.heightIn ?? spec.defaults.doorHeightIn),
+        };
+      }
+
+      const sill = inchesToFeet(opening.sillHeightIn ?? spec.defaults.window.sillHeightIn);
+      const height = inchesToFeet(opening.heightIn ?? spec.defaults.window.heightIn);
+      return {
+        ...opening,
+        wallId: wall.id,
+        wall,
+        startOffsetFt: clampedStart,
+        endOffsetFt: clampedEnd,
+        bottomFt: sill,
+        topFt: sill + height,
+      };
+    })
+    .filter(Boolean);
+}
+
+function buildWallsWithOpenings(walls, openings) {
+  const openingsByWall = new Map();
+  for (const opening of openings) {
+    if (!openingsByWall.has(opening.wallId)) openingsByWall.set(opening.wallId, []);
+    openingsByWall.get(opening.wallId).push(opening);
   }
-  return windows;
+
+  for (const wall of walls) {
+    const wallOpenings = openingsByWall.get(wall.id) ?? [];
+    buildWallMeshFromOpenings(wall, wallOpenings);
+  }
 }
 
-function swing(x, z, r, startDeg, endDeg, center) {
-  return { x: x - center.x, z: z - center.z, r, startDeg, endDeg };
-}
+function buildWallMeshFromOpenings(wall, wallOpenings) {
+  const dx = wall.b.x - wall.a.x;
+  const dz = wall.b.z - wall.a.z;
+  const length = Math.hypot(dx, dz);
+  if (length < 0.05) return;
 
-function addWallSegments(segments, thickness, color) {
-  for (const segment of segments) {
-    const dx = segment.b.x - segment.a.x;
-    const dz = segment.b.z - segment.a.z;
-    const length = Math.hypot(dx, dz);
-    if (length < 0.05) continue;
+  const thickness = wall.kind === "exterior" ? EXTERIOR_WALL_THICKNESS : INTERIOR_WALL_THICKNESS;
+  const color = wall.kind === "exterior" ? "#f8fafc" : "#e6edf6";
+  const boundaries = new Set([0, length]);
 
-    const wall = new THREE.Mesh(
-      new THREE.BoxGeometry(length, CEILING_HEIGHT, thickness),
-      new THREE.MeshStandardMaterial({ color, roughness: 0.8 })
-    );
-    wall.castShadow = true;
-    wall.position.set((segment.a.x + segment.b.x) / 2, CEILING_HEIGHT / 2, (segment.a.z + segment.b.z) / 2);
-    wall.rotation.y = -Math.atan2(dz, dx);
-    apartmentGroup.add(wall);
+  for (const opening of wallOpenings) {
+    boundaries.add(THREE.MathUtils.clamp(opening.startOffsetFt, 0, length));
+    boundaries.add(THREE.MathUtils.clamp(opening.endOffsetFt, 0, length));
+  }
+
+  const splits = [...boundaries].sort((a, b) => a - b);
+  const tangentX = dx / length;
+  const tangentZ = dz / length;
+  const angle = -Math.atan2(dz, dx);
+
+  for (let i = 0; i < splits.length - 1; i += 1) {
+    const s0 = splits[i];
+    const s1 = splits[i + 1];
+    const segmentLen = s1 - s0;
+    if (segmentLen < 0.02) continue;
+    const mid = (s0 + s1) / 2;
+
+    const blocked = wallOpenings
+      .filter((opening) => mid > opening.startOffsetFt + 1e-6 && mid < opening.endOffsetFt - 1e-6)
+      .map((opening) => [Math.max(0, opening.bottomFt), Math.min(CEILING_HEIGHT, opening.topFt)])
+      .filter(([low, high]) => high - low > 0.01)
+      .sort((a, b) => a[0] - b[0]);
+
+    const mergedBlocked = [];
+    for (const [low, high] of blocked) {
+      const last = mergedBlocked[mergedBlocked.length - 1];
+      if (!last || low > last[1] + 1e-6) mergedBlocked.push([low, high]);
+      else last[1] = Math.max(last[1], high);
+    }
+
+    const solidRanges = [];
+    let cursor = 0;
+    for (const [low, high] of mergedBlocked) {
+      if (low > cursor + 1e-6) solidRanges.push([cursor, low]);
+      cursor = Math.max(cursor, high);
+    }
+    if (cursor < CEILING_HEIGHT - 1e-6) solidRanges.push([cursor, CEILING_HEIGHT]);
+
+    for (const [low, high] of solidRanges) {
+      const h = high - low;
+      if (h < 0.02) continue;
+      const localMid = (s0 + s1) / 2;
+      const cx = wall.a.x + tangentX * localMid;
+      const cz = wall.a.z + tangentZ * localMid;
+      const wallPiece = new THREE.Mesh(
+        new THREE.BoxGeometry(segmentLen, h, thickness),
+        new THREE.MeshStandardMaterial({ color, roughness: 0.8 })
+      );
+      wallPiece.castShadow = true;
+      wallPiece.receiveShadow = true;
+      wallPiece.position.set(cx, low + h / 2, cz);
+      wallPiece.rotation.y = angle;
+      apartmentGroup.add(wallPiece);
+    }
   }
 }
 
@@ -292,35 +505,58 @@ function addRoomLabels() {
   addLabel("FOYER", RAW.rooms.foyer, 3.8, 1.2, 4.8);
 }
 
-function addWindowMarkers() {
-  for (const w of RAW.windows) {
-    const geom = new THREE.PlaneGeometry(w.axis === "x" ? w.len : 0.18, w.axis === "z" ? w.len : 0.18);
-    const pane = new THREE.Mesh(
-      geom,
+function addWindowGlazing() {
+  for (const opening of RAW.openings) {
+    if (opening.type !== "window") continue;
+    const wall = opening.wall;
+    const length = wallLength(wall);
+    const dirX = (wall.b.x - wall.a.x) / length;
+    const dirZ = (wall.b.z - wall.a.z) / length;
+    const centerOffset = (opening.startOffsetFt + opening.endOffsetFt) / 2;
+    const cx = wall.a.x + dirX * centerOffset;
+    const cz = wall.a.z + dirZ * centerOffset;
+    const openingWidth = opening.endOffsetFt - opening.startOffsetFt;
+    const openingHeight = opening.topFt - opening.bottomFt;
+
+    const glass = new THREE.Mesh(
+      new THREE.BoxGeometry(openingWidth - 0.08, openingHeight - 0.08, 1 / INCHES_PER_FOOT),
       new THREE.MeshStandardMaterial({
-        color: "#8ee1f5",
+        color: "#bde8ff",
         transparent: true,
-        opacity: 0.72,
-        emissive: "#7dd3fc",
-        emissiveIntensity: 0.25,
-        side: THREE.DoubleSide,
+        opacity: 0.32,
+        metalness: 0,
+        roughness: 0.05,
       })
     );
-    pane.position.set(w.x, CEILING_HEIGHT * 0.62, w.z);
-    pane.rotation.x = -Math.PI / 2;
-    apartmentGroup.add(pane);
+    glass.position.set(cx, opening.bottomFt + openingHeight / 2, cz);
+    glass.rotation.y = -Math.atan2(wall.b.z - wall.a.z, wall.b.x - wall.a.x);
+    apartmentGroup.add(glass);
   }
 }
 
 function addDoorSwings() {
-  for (const d of RAW.doorSwings) {
-    const start = (d.startDeg * Math.PI) / 180;
-    const end = (d.endDeg * Math.PI) / 180;
+  for (const door of RAW.openings) {
+    if (door.type !== "door") continue;
+    const wall = door.wall;
+    const length = wallLength(wall);
+    const tangent = new THREE.Vector3((wall.b.x - wall.a.x) / length, 0, (wall.b.z - wall.a.z) / length);
+    const hingeOffset = door.hinge === "left" ? door.startOffsetFt : door.endOffsetFt;
+    const hingePoint = new THREE.Vector3(
+      wall.a.x + tangent.x * hingeOffset,
+      0.06,
+      wall.a.z + tangent.z * hingeOffset
+    );
+    const closedDir = door.hinge === "left" ? tangent.clone() : tangent.clone().multiplyScalar(-1);
+    const rotateSign = door.swing === "in" ? -1 : 1;
+    const openDir = closedDir.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), rotateSign * Math.PI / 2);
+    const radius = door.endOffsetFt - door.startOffsetFt;
+    const startAngle = Math.atan2(closedDir.z, closedDir.x);
+    const endAngle = Math.atan2(openDir.z, openDir.x);
     const points = [];
     for (let i = 0; i <= 22; i += 1) {
       const t = i / 22;
-      const a = start + (end - start) * t;
-      points.push(new THREE.Vector3(d.x + d.r * Math.cos(a), 0.06, d.z + d.r * Math.sin(a)));
+      const a = startAngle + (endAngle - startAngle) * t;
+      points.push(new THREE.Vector3(hingePoint.x + radius * Math.cos(a), 0.06, hingePoint.z + radius * Math.sin(a)));
     }
 
     apartmentGroup.add(
@@ -333,19 +569,13 @@ function addDoorSwings() {
     apartmentGroup.add(
       new THREE.Line(
         new THREE.BufferGeometry().setFromPoints([
-          new THREE.Vector3(d.x, 0.06, d.z),
+          hingePoint,
           points[points.length - 1],
         ]),
         new THREE.LineBasicMaterial({ color: 0x94a3b8 })
       )
     );
   }
-}
-
-function addDoorWidthLabels() {
-  addLabel(`ENTRY ${DOOR.ENTRY.toFixed(1)}'`, rawToCentered(26, 25.2), 2.8, 0.7, 0.55);
-  addLabel(`INT ${DOOR.INTERIOR.toFixed(1)}'`, rawToCentered(15.6, 14.1), 2.7, 0.7, 0.55);
-  addLabel(`CLOSET ${DOOR.CLOSET.toFixed(1)}'`, rawToCentered(31.7, 22.8), 3.6, 0.7, 0.55);
 }
 
 function addLabel(text, pos, sx, sy, y = 0.4) {
@@ -951,6 +1181,14 @@ function shapeFromPoints(points) {
   return s;
 }
 
+function inchesToFeet(valueIn) {
+  return valueIn / INCHES_PER_FOOT;
+}
+
+function wallLength(wall) {
+  return Math.hypot(wall.b.x - wall.a.x, wall.b.z - wall.a.z);
+}
+
 function toCenteredPoint(x, z, center) {
   return { x: x - center.x, z: z - center.z };
 }
@@ -963,10 +1201,6 @@ function centerPoints(points) {
 function getCenter(points) {
   const ext = getExtents(points);
   return { x: (ext.minX + ext.maxX) / 2, z: (ext.minZ + ext.maxZ) / 2 };
-}
-
-function rawToCentered(x, z) {
-  return { x: x - RAW.center.x, z: z - RAW.center.z };
 }
 
 function loadFurniture() {
