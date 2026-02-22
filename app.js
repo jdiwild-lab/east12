@@ -1,18 +1,20 @@
-const WALL_THICKNESS = 0.3;
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+const CEILING_HEIGHT = 9;
+const WALL_THICKNESS = 0.35;
 const POSITION_SNAP = 0.25;
-const ROTATION_STEP = 90;
+const ROTATION_STEP = Math.PI / 2;
 const COLLISION_GAP = 0.2;
 
 const DIM = {
-  bedroomWidth: 10 + 7 / 12,
-  livingWidth: 13.5,
-  kitchenReturn: 4 + 7 / 12,
-  entrySpan: 9 + 7 / 12,
-  totalDepth: 30,
-  rightDrop: 15,
-  kitchenTopRise: 4.5,
-  hallDepth: 16,
-  dividerRun: 11 + 11 / 12,
+  bedroomWidth: 15 + 10 / 12,
+  bedroomDepth: 16,
+  livingWidth: 19 + 11 / 12,
+  livingDepth: 17 + 4 / 12,
+  kitchenWidth: 7,
+  kitchenRise: 6,
+  foyerDepth: 28,
 };
 
 const DEFAULT_CATALOG_ITEMS = [
@@ -55,7 +57,7 @@ const DEFAULT_CATALOG_ITEMS = [
 ];
 
 const state = {
-  furniture: normalizeFurniture(load("apartmentPlannerFurniture", [])),
+  furniture: loadFurniture(),
   tracker: load("apartmentPlannerTracker", []),
   catalog: loadCatalog(),
   selectedId: null,
@@ -63,137 +65,193 @@ const state = {
 
 const viewer = document.getElementById("viewer");
 const statusEl = document.getElementById("status");
-const floorPoints = buildMeasuredFloorPlan();
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color("#f4f7fb");
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(viewer.clientWidth, viewer.clientHeight);
+renderer.shadowMap.enabled = true;
+viewer.appendChild(renderer.domElement);
+
+const camera = new THREE.PerspectiveCamera(55, viewer.clientWidth / viewer.clientHeight, 0.1, 1000);
+camera.position.set(22, 30, 28);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8ea2b5, 0.75));
+const sun = new THREE.DirectionalLight(0xffffff, 0.85);
+sun.position.set(20, 35, 10);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+scene.add(sun);
+
+const apartmentGroup = new THREE.Group();
+const furnitureGroup = new THREE.Group();
+scene.add(apartmentGroup);
+scene.add(furnitureGroup);
+
+const floorPoints = buildFloorPoints();
+const floorShape = shapeFromPoints(floorPoints);
+const floorMesh = new THREE.Mesh(
+  new THREE.ShapeGeometry(floorShape),
+  new THREE.MeshStandardMaterial({ color: "#e8e0d2", roughness: 0.95 })
+);
+floorMesh.rotation.x = -Math.PI / 2;
+floorMesh.receiveShadow = true;
+apartmentGroup.add(floorMesh);
+
+addPerimeterWalls(floorPoints);
 const interiorWalls = buildInteriorWallSegments();
+addInteriorWalls(interiorWalls);
 
-const extents = getExtents(floorPoints);
-const center = { x: (extents.minX + extents.maxX) / 2, y: (extents.minY + extents.maxY) / 2 };
+addRoomLabel("BEDROOM", rawToCentered(7, 8));
+addRoomLabel("LIVING ROOM", rawToCentered(25, 9));
+addRoomLabel("KITCHEN", rawToCentered(39, 5));
+addRoomLabel("BATH", rawToCentered(5, 22));
+addRoomLabel("FOYER", rawToCentered(30, 22));
 
-let svg = null;
-let furnitureLayer = null;
-const drag = { active: false, item: null, offsetX: 0, offsetY: 0 };
+const grid = new THREE.GridHelper(90, 90, 0xa8b1bc, 0xd5dce5);
+grid.position.y = 0.01;
+scene.add(grid);
 
-renderLayout();
+const ext = getExtents(floorPoints);
+controls.target.set((ext.minX + ext.maxX) / 2, 0, (ext.minZ + ext.maxZ) / 2);
+
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+const drag = { active: false, item: null, offset: new THREE.Vector3() };
+const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+
+const wallColliders = interiorWalls.map((segment) => {
+  const length = Math.hypot(segment.b.x - segment.a.x, segment.b.z - segment.a.z);
+  return {
+    cx: (segment.a.x + segment.b.x) / 2,
+    cz: (segment.a.z + segment.b.z) / 2,
+    width: length,
+    depth: WALL_THICKNESS + COLLISION_GAP,
+    angle: Math.atan2(segment.b.z - segment.a.z, segment.b.x - segment.a.x),
+  };
+});
+
+rebuildFurnitureMeshes();
 renderCatalog();
 renderTracker();
-rebuildFurniture();
+
+renderer.domElement.addEventListener("pointerdown", onPointerDown);
+renderer.domElement.addEventListener("pointermove", onPointerMove);
+window.addEventListener("pointerup", onPointerUp);
+window.addEventListener("keydown", onKeyDown);
+window.addEventListener("resize", onResize);
+
+// Sidebar forms
 
 document.getElementById("furniture-form").addEventListener("submit", onAddFurniture);
 document.getElementById("link-form").addEventListener("submit", onAddFromLink);
 document.getElementById("tracker-form").addEventListener("submit", onAddTrackerItem);
 document.getElementById("catalog-import-form").addEventListener("submit", onCatalogImport);
 document.getElementById("catalog-reset-btn").addEventListener("click", onCatalogReset);
-window.addEventListener("keydown", onKeyDown);
-window.addEventListener("pointermove", onPointerMove);
-window.addEventListener("pointerup", onPointerUp);
 
-function renderLayout() {
-  viewer.innerHTML = "";
-  const margin = 2;
-  const width = extents.maxX - extents.minX + margin * 2;
-  const height = extents.maxY - extents.minY + margin * 2;
+animate();
 
-  svg = svgEl("svg", {
-    class: "plan-svg",
-    viewBox: `${extents.minX - margin} ${extents.minY - margin} ${width} ${height}`,
-    preserveAspectRatio: "xMidYMid meet",
-  });
-
-  const grid = svgEl("pattern", { id: "grid", width: 1, height: 1, patternUnits: "userSpaceOnUse" });
-  grid.appendChild(svgEl("path", { d: "M 1 0 L 0 0 0 1", fill: "none", stroke: "#e9edf3", "stroke-width": "0.03" }));
-
-  const defs = svgEl("defs");
-  defs.appendChild(grid);
-  svg.appendChild(defs);
-
-  svg.appendChild(
-    svgEl("rect", {
-      x: extents.minX - margin,
-      y: extents.minY - margin,
-      width,
-      height,
-      fill: "url(#grid)",
-    })
-  );
-
-  svg.appendChild(
-    svgEl("polygon", {
-      points: floorPoints.map((p) => `${p.x},${p.y}`).join(" "),
-      fill: "#f8f3e8",
-      stroke: "#153f75",
-      "stroke-width": "0.24",
-      "stroke-linejoin": "round",
-    })
-  );
-
-  for (const seg of interiorWalls) {
-    svg.appendChild(
-      svgEl("line", {
-        x1: seg.a.x,
-        y1: seg.a.y,
-        x2: seg.b.x,
-        y2: seg.b.y,
-        stroke: "#315d96",
-        "stroke-width": "0.2",
-        "stroke-linecap": "round",
-      })
-    );
-  }
-
-  for (const label of getRoomLabels()) {
-    svg.appendChild(
-      svgEl("text", {
-        x: label.x,
-        y: label.y,
-        class: "room-label",
-      }, label.text)
-    );
-  }
-
-  for (const arc of getDoorArcs()) {
-    svg.appendChild(
-      svgEl("path", {
-        d: describeArc(arc.cx, arc.cy, arc.r, arc.start, arc.end),
-        fill: "none",
-        stroke: "#64748b",
-        "stroke-width": "0.08",
-      })
-    );
-  }
-
-  furnitureLayer = svgEl("g", { id: "furniture-layer" });
-  svg.appendChild(furnitureLayer);
-  viewer.appendChild(svg);
+function buildFloorPoints() {
+  const raw = getRawFloorOutline();
+  const e = getExtents(raw);
+  const cx = (e.minX + e.maxX) / 2;
+  const cz = (e.minZ + e.maxZ) / 2;
+  return raw.map((p) => ({ x: p.x - cx, z: p.z - cz }));
 }
 
-function rebuildFurniture() {
-  furnitureLayer.innerHTML = "";
+function getRawFloorOutline() {
+  return [
+    { x: 0, z: 0 },
+    { x: DIM.bedroomWidth + DIM.livingWidth, z: 0 },
+    { x: DIM.bedroomWidth + DIM.livingWidth, z: -DIM.kitchenRise },
+    { x: DIM.bedroomWidth + DIM.livingWidth + DIM.kitchenWidth, z: -DIM.kitchenRise },
+    { x: DIM.bedroomWidth + DIM.livingWidth + DIM.kitchenWidth, z: DIM.livingDepth },
+    { x: DIM.bedroomWidth + DIM.livingWidth, z: DIM.livingDepth },
+    { x: DIM.bedroomWidth + DIM.livingWidth, z: DIM.foyerDepth },
+    { x: 26, z: DIM.foyerDepth },
+    { x: 26, z: 24 },
+    { x: 16, z: 24 },
+    { x: 16, z: DIM.foyerDepth },
+    { x: 0, z: DIM.foyerDepth },
+  ];
+}
 
-  for (const item of state.furniture) {
-    const group = svgEl("g", {
-      transform: `translate(${item.x} ${item.y}) rotate(${item.rotation})`,
-      class: `furniture-item${item.id === state.selectedId ? " selected" : ""}`,
-      "data-id": item.id,
-    });
+function buildInteriorWallSegments() {
+  const xSplit = DIM.bedroomWidth;
+  return [
+    { a: rawToCentered(xSplit, 0), b: rawToCentered(xSplit, DIM.bedroomDepth) },
+    { a: rawToCentered(18, 24), b: rawToCentered(26, 24) },
+    { a: rawToCentered(DIM.bedroomWidth + DIM.livingWidth, DIM.livingDepth), b: rawToCentered(DIM.bedroomWidth + DIM.livingWidth, DIM.foyerDepth) },
+  ];
+}
 
-    const rect = svgEl("rect", {
-      x: -item.width / 2,
-      y: -item.depth / 2,
-      width: item.width,
-      height: item.depth,
-      rx: 0.08,
-      fill: item.color,
-      stroke: "#111827",
-      "stroke-width": "0.06",
-    });
+function rawToCentered(x, z) {
+  const pts = getRawFloorOutline();
+  const e = getExtents(pts);
+  const cx = (e.minX + e.maxX) / 2;
+  const cz = (e.minZ + e.maxZ) / 2;
+  return { x: x - cx, z: z - cz };
+}
 
-    const txt = svgEl("text", { x: 0, y: 0.08, class: "furniture-label" }, item.name);
+function shapeFromPoints(points) {
+  const s = new THREE.Shape();
+  s.moveTo(points[0].x, points[0].z);
+  for (let i = 1; i < points.length; i += 1) s.lineTo(points[i].x, points[i].z);
+  s.lineTo(points[0].x, points[0].z);
+  return s;
+}
 
-    group.appendChild(rect);
-    group.appendChild(txt);
-    group.addEventListener("pointerdown", (event) => onPointerDown(event, item.id));
-    furnitureLayer.appendChild(group);
+function addPerimeterWalls(points) {
+  for (let i = 0; i < points.length; i += 1) {
+    const a = points[i];
+    const b = points[(i + 1) % points.length];
+    addWallSegment(a, b, "#f8fafc");
   }
+}
+
+function addInteriorWalls(segments) {
+  for (const seg of segments) addWallSegment(seg.a, seg.b, "#e6edf6");
+}
+
+function addWallSegment(a, b, color) {
+  const dx = b.x - a.x;
+  const dz = b.z - a.z;
+  const length = Math.hypot(dx, dz);
+  if (length < 0.05) return;
+
+  const wall = new THREE.Mesh(
+    new THREE.BoxGeometry(length, CEILING_HEIGHT, WALL_THICKNESS),
+    new THREE.MeshStandardMaterial({ color, roughness: 0.8 })
+  );
+  wall.castShadow = true;
+  wall.position.set((a.x + b.x) / 2, CEILING_HEIGHT / 2, (a.z + b.z) / 2);
+  wall.rotation.y = -Math.atan2(dz, dx);
+  apartmentGroup.add(wall);
+}
+
+function addRoomLabel(text, pos) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 512;
+  canvas.height = 128;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "rgba(255,255,255,0.72)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#1f2937";
+  ctx.font = "700 52px 'Source Sans 3'";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(text, 256, 64);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+  sprite.scale.set(6, 1.5, 1);
+  sprite.position.set(pos.x, 4.8, pos.z);
+  apartmentGroup.add(sprite);
 }
 
 function onAddFurniture(event) {
@@ -205,19 +263,19 @@ function onAddFurniture(event) {
     depth: Number(document.getElementById("item-depth").value),
     height: Number(document.getElementById("item-height").value),
     color: document.getElementById("item-color").value,
-    x: center.x,
-    y: center.y,
-    rotation: 0,
+    x: controls.target.x,
+    z: controls.target.z,
+    rotationY: 0,
   };
 
   if (!isValidPlacement(item, item.id)) {
-    setStatus("Placement blocked: collides with a wall or another item.");
+    setStatus("Placement blocked: collides with wall/furniture.");
     return;
   }
 
   state.furniture.push(item);
   save("apartmentPlannerFurniture", state.furniture);
-  rebuildFurniture();
+  rebuildFurnitureMeshes();
   setStatus(`Placed ${item.name}.`);
 
   event.target.reset();
@@ -229,8 +287,8 @@ function onAddFurniture(event) {
 
 function onAddFromLink(event) {
   event.preventDefault();
-  const linkInput = document.getElementById("item-link");
-  const raw = linkInput.value.trim();
+  const input = document.getElementById("item-link");
+  const raw = input.value.trim();
   if (!raw) {
     setStatus("Paste a product link first.");
     return;
@@ -240,7 +298,7 @@ function onAddFromLink(event) {
   try {
     url = new URL(raw);
   } catch {
-    setStatus("That link is not a valid URL.");
+    setStatus("Invalid URL.");
     return;
   }
 
@@ -252,19 +310,19 @@ function onAddFromLink(event) {
     depth: preset.depth,
     height: preset.height,
     color: preset.color,
-    x: center.x,
-    y: center.y,
-    rotation: 0,
+    x: controls.target.x,
+    z: controls.target.z,
+    rotationY: 0,
   };
 
   if (!isValidPlacement(item, item.id)) {
-    setStatus("Auto-placement blocked at center. Move another item and try again.");
+    setStatus("Auto-placement blocked at center.");
     return;
   }
 
   state.furniture.push(item);
   save("apartmentPlannerFurniture", state.furniture);
-  rebuildFurniture();
+  rebuildFurnitureMeshes();
 
   state.tracker.push({
     id: crypto.randomUUID(),
@@ -277,42 +335,75 @@ function onAddFromLink(event) {
   save("apartmentPlannerTracker", state.tracker);
   renderTracker();
 
-  linkInput.value = "";
+  input.value = "";
   setStatus(`Added ${item.name} from link.`);
 }
 
-function onPointerDown(event, id) {
-  event.preventDefault();
-  const item = findFurniture(id);
+function rebuildFurnitureMeshes() {
+  furnitureGroup.clear();
+  for (const item of state.furniture) {
+    const mesh = new THREE.Mesh(
+      new THREE.BoxGeometry(item.width, item.height, item.depth),
+      new THREE.MeshStandardMaterial({
+        color: item.color,
+        emissive: item.id === state.selectedId ? new THREE.Color("#0f172a") : new THREE.Color("#000000"),
+        emissiveIntensity: item.id === state.selectedId ? 0.2 : 0,
+      })
+    );
+
+    mesh.position.set(item.x, item.height / 2, item.z);
+    mesh.rotation.y = item.rotationY;
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    mesh.userData.itemId = item.id;
+
+    mesh.add(new THREE.LineSegments(
+      new THREE.EdgesGeometry(mesh.geometry),
+      new THREE.LineBasicMaterial({ color: 0x1f2937 })
+    ));
+
+    furnitureGroup.add(mesh);
+  }
+}
+
+function onPointerDown(event) {
+  const hit = pickFurniture(event);
+  if (!hit) {
+    state.selectedId = null;
+    rebuildFurnitureMeshes();
+    return;
+  }
+
+  state.selectedId = hit.object.userData.itemId;
+  rebuildFurnitureMeshes();
+  const item = findFurniture(state.selectedId);
   if (!item) return;
 
-  state.selectedId = id;
-  const p = clientToSvg(event);
+  const p = floorIntersection(event);
+  if (!p) return;
+
   drag.active = true;
   drag.item = item;
-  drag.offsetX = item.x - p.x;
-  drag.offsetY = item.y - p.y;
-  rebuildFurniture();
+  drag.offset.set(item.x - p.x, 0, item.z - p.z);
 }
 
 function onPointerMove(event) {
   if (!drag.active || !drag.item) return;
-  const p = clientToSvg(event);
+  const p = floorIntersection(event);
+  if (!p) return;
 
   const candidate = {
     ...drag.item,
-    x: snap(p.x + drag.offsetX, POSITION_SNAP),
-    y: snap(p.y + drag.offsetY, POSITION_SNAP),
+    x: snap(p.x + drag.offset.x, POSITION_SNAP),
+    z: snap(p.z + drag.offset.z, POSITION_SNAP),
   };
 
-  if (!isValidPlacement(candidate, drag.item.id)) {
-    return;
-  }
+  if (!isValidPlacement(candidate, drag.item.id)) return;
 
   drag.item.x = candidate.x;
-  drag.item.y = candidate.y;
+  drag.item.z = candidate.z;
   save("apartmentPlannerFurniture", state.furniture);
-  rebuildFurniture();
+  rebuildFurnitureMeshes();
 }
 
 function onPointerUp() {
@@ -326,92 +417,101 @@ function onKeyDown(event) {
   if (!item) return;
 
   if (event.key.toLowerCase() === "r") {
-    const candidate = { ...item, rotation: (item.rotation + ROTATION_STEP) % 360 };
+    const candidate = { ...item, rotationY: item.rotationY + ROTATION_STEP };
     if (!isValidPlacement(candidate, item.id)) {
-      setStatus("Rotate blocked: collision detected.");
+      setStatus("Rotate blocked by collision.");
       return;
     }
-    item.rotation = candidate.rotation;
+    item.rotationY = candidate.rotationY;
     save("apartmentPlannerFurniture", state.furniture);
-    rebuildFurniture();
-    setStatus("");
+    rebuildFurnitureMeshes();
   }
 
   if (event.key === "Delete" || event.key === "Backspace") {
     state.furniture = state.furniture.filter((f) => f.id !== state.selectedId);
     state.selectedId = null;
     save("apartmentPlannerFurniture", state.furniture);
-    rebuildFurniture();
+    rebuildFurnitureMeshes();
   }
 }
 
-function isValidPlacement(candidate, ignoreId) {
-  const candidatePoly = getItemPolygon(candidate, COLLISION_GAP / 2);
+function pickFurniture(event) {
+  const rect = renderer.domElement.getBoundingClientRect();
+  pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+  pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(pointer, camera);
+  const hits = raycaster.intersectObjects(furnitureGroup.children, true);
+  return hits.find((h) => h.object.userData.itemId) || null;
+}
 
-  for (const corner of candidatePoly) {
-    if (!pointInPolygon(corner, floorPoints)) return false;
+function floorIntersection(event) {
+  const rect = renderer.domElement.getBoundingClientRect();
+  pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+  pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(pointer, camera);
+  const p = new THREE.Vector3();
+  return raycaster.ray.intersectPlane(groundPlane, p) ? p : null;
+}
+
+function isValidPlacement(candidate, ignoreId) {
+  const poly = getItemPolygon(candidate, COLLISION_GAP / 2);
+
+  for (const c of poly) {
+    if (!pointInPolygon(c, floorPoints)) return false;
   }
 
-  for (const wall of interiorWalls) {
-    const length = Math.hypot(wall.b.x - wall.a.x, wall.b.y - wall.a.y);
-    const cx = (wall.a.x + wall.b.x) / 2;
-    const cy = (wall.a.y + wall.b.y) / 2;
-    const angle = toDegrees(Math.atan2(wall.b.y - wall.a.y, wall.b.x - wall.a.x));
-    const wallPoly = getRectPolygon(cx, cy, length, WALL_THICKNESS + COLLISION_GAP, angle);
-    if (polygonsIntersect(candidatePoly, wallPoly)) return false;
+  for (const wall of wallColliders) {
+    const wallPoly = getRectPolygon(wall.cx, wall.cz, wall.width, wall.depth, wall.angle);
+    if (polygonsIntersect(poly, wallPoly)) return false;
   }
 
   for (const other of state.furniture) {
     if (other.id === ignoreId) continue;
     const otherPoly = getItemPolygon(other, COLLISION_GAP / 2);
-    if (polygonsIntersect(candidatePoly, otherPoly)) return false;
+    if (polygonsIntersect(poly, otherPoly)) return false;
   }
 
   return true;
 }
 
-function getItemPolygon(item, inflate = 0) {
-  return getRectPolygon(item.x, item.y, item.width + inflate, item.depth + inflate, item.rotation);
+function getItemPolygon(item, inflate) {
+  return getRectPolygon(item.x, item.z, item.width + inflate, item.depth + inflate, item.rotationY);
 }
 
-function getRectPolygon(cx, cy, width, depth, rotationDeg) {
-  const rad = (rotationDeg * Math.PI) / 180;
+function getRectPolygon(cx, cz, width, depth, angle) {
   const hw = width / 2;
   const hd = depth / 2;
-  const corners = [
-    { x: -hw, y: -hd },
-    { x: hw, y: -hd },
-    { x: hw, y: hd },
-    { x: -hw, y: hd },
+  const pts = [
+    { x: -hw, z: -hd },
+    { x: hw, z: -hd },
+    { x: hw, z: hd },
+    { x: -hw, z: hd },
   ];
 
-  const cos = Math.cos(rad);
-  const sin = Math.sin(rad);
-  return corners.map((p) => ({
-    x: cx + p.x * cos - p.y * sin,
-    y: cy + p.x * sin + p.y * cos,
-  }));
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  return pts.map((p) => ({ x: cx + p.x * cos - p.z * sin, z: cz + p.x * sin + p.z * cos }));
 }
 
-function polygonsIntersect(polyA, polyB) {
-  const axes = [...getAxes(polyA), ...getAxes(polyB)];
+function polygonsIntersect(a, b) {
+  const axes = [...axesFor(a), ...axesFor(b)];
   for (const axis of axes) {
-    const a = project(polyA, axis);
-    const b = project(polyB, axis);
-    if (a.max < b.min || b.max < a.min) return false;
+    const pa = project(a, axis);
+    const pb = project(b, axis);
+    if (pa.max < pb.min || pb.max < pa.min) return false;
   }
   return true;
 }
 
-function getAxes(poly) {
+function axesFor(poly) {
   const axes = [];
   for (let i = 0; i < poly.length; i += 1) {
-    const a = poly[i];
-    const b = poly[(i + 1) % poly.length];
-    const edge = { x: b.x - a.x, y: b.y - a.y };
-    const normal = { x: -edge.y, y: edge.x };
-    const length = Math.hypot(normal.x, normal.y);
-    if (length > 0) axes.push({ x: normal.x / length, y: normal.y / length });
+    const p1 = poly[i];
+    const p2 = poly[(i + 1) % poly.length];
+    const edge = { x: p2.x - p1.x, z: p2.z - p1.z };
+    const n = { x: -edge.z, z: edge.x };
+    const len = Math.hypot(n.x, n.z);
+    if (len > 0) axes.push({ x: n.x / len, z: n.z / len });
   }
   return axes;
 }
@@ -420,9 +520,9 @@ function project(poly, axis) {
   let min = Infinity;
   let max = -Infinity;
   for (const p of poly) {
-    const value = p.x * axis.x + p.y * axis.y;
-    min = Math.min(min, value);
-    max = Math.max(max, value);
+    const v = p.x * axis.x + p.z * axis.z;
+    min = Math.min(min, v);
+    max = Math.max(max, v);
   }
   return { min, max };
 }
@@ -431,23 +531,39 @@ function pointInPolygon(point, polygon) {
   let inside = false;
   for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
     const xi = polygon[i].x;
-    const yi = polygon[i].y;
+    const zi = polygon[i].z;
     const xj = polygon[j].x;
-    const yj = polygon[j].y;
-
-    const intersect = yi > point.y !== yj > point.y && point.x < ((xj - xi) * (point.y - yi)) / (yj - yi + Number.EPSILON) + xi;
-    if (intersect) inside = !inside;
+    const zj = polygon[j].z;
+    const cross = zi > point.z !== zj > point.z && point.x < ((xj - xi) * (point.z - zi)) / (zj - zi + Number.EPSILON) + xi;
+    if (cross) inside = !inside;
   }
   return inside;
 }
 
+function onAddTrackerItem(event) {
+  event.preventDefault();
+  state.tracker.push({
+    id: crypto.randomUUID(),
+    name: document.getElementById("tracker-name").value.trim(),
+    qty: Number(document.getElementById("tracker-qty").value),
+    price: Number(document.getElementById("tracker-price").value),
+    notes: document.getElementById("tracker-notes").value.trim(),
+    status: "needed",
+  });
+  save("apartmentPlannerTracker", state.tracker);
+  renderTracker();
+  event.target.reset();
+  document.getElementById("tracker-qty").value = 1;
+  document.getElementById("tracker-price").value = 0;
+}
+
 function renderTracker() {
-  const container = document.getElementById("tracker-list");
-  container.innerHTML = "";
+  const list = document.getElementById("tracker-list");
+  list.innerHTML = "";
 
   for (const item of state.tracker) {
     const row = document.createElement("div");
-    row.className = "tracker-item";
+    row.className = `tracker-item${item.status === "purchased" ? " purchased" : ""}`;
     const total = item.qty * item.price;
 
     row.innerHTML = `
@@ -462,30 +578,26 @@ function renderTracker() {
       </div>
     `;
 
-    row.classList.toggle("purchased", item.status === "purchased");
-    container.appendChild(row);
+    list.appendChild(row);
   }
 
-  container.querySelectorAll("button").forEach((button) => {
+  list.querySelectorAll("button").forEach((button) => {
     button.addEventListener("click", () => {
       const id = button.dataset.id;
       if (button.dataset.action === "toggle") {
         const target = state.tracker.find((entry) => entry.id === id);
         if (target) target.status = target.status === "needed" ? "purchased" : "needed";
       }
-
       if (button.dataset.action === "delete") {
         state.tracker = state.tracker.filter((entry) => entry.id !== id);
       }
-
       save("apartmentPlannerTracker", state.tracker);
       renderTracker();
     });
   });
 
-  const purchased = state.tracker.filter((i) => i.status === "purchased");
-  const needed = state.tracker.filter((i) => i.status === "needed");
-
+  const purchased = state.tracker.filter((t) => t.status === "purchased");
+  const needed = state.tracker.filter((t) => t.status === "needed");
   const purchasedTotal = purchased.reduce((sum, i) => sum + i.qty * i.price, 0);
   const neededTotal = needed.reduce((sum, i) => sum + i.qty * i.price, 0);
 
@@ -519,7 +631,7 @@ function renderCatalog() {
 
   catalog.querySelectorAll("button[data-action]").forEach((button) => {
     button.addEventListener("click", () => {
-      const item = state.catalog.find((entry) => entry.id === button.dataset.id);
+      const item = state.catalog.find((c) => c.id === button.dataset.id);
       if (!item) return;
 
       if (button.dataset.action === "place") {
@@ -530,19 +642,17 @@ function renderCatalog() {
           depth: item.depth,
           height: item.height,
           color: item.color,
-          x: center.x,
-          y: center.y,
-          rotation: 0,
+          x: controls.target.x,
+          z: controls.target.z,
+          rotationY: 0,
         };
-
         if (!isValidPlacement(placed, placed.id)) {
-          setStatus("Catalog item cannot be placed at center.");
+          setStatus("Catalog item placement blocked.");
           return;
         }
-
         state.furniture.push(placed);
         save("apartmentPlannerFurniture", state.furniture);
-        rebuildFurniture();
+        rebuildFurnitureMeshes();
       }
 
       if (button.dataset.action === "track") {
@@ -565,14 +675,11 @@ function onCatalogImport(event) {
   event.preventDefault();
   const input = document.getElementById("catalog-import-input");
   const text = input.value.trim();
-  if (!text) {
-    setStatus("Paste CSV/JSON rows before importing.");
-    return;
-  }
+  if (!text) return;
 
   const parsed = parseCatalogText(text);
   if (!parsed.length) {
-    setStatus("No valid rows imported. Required: name,width,depth,height.");
+    setStatus("No valid rows imported.");
     return;
   }
 
@@ -589,7 +696,7 @@ function onCatalogImport(event) {
   save("apartmentPlannerCatalog", state.catalog);
   renderCatalog();
   input.value = "";
-  setStatus(`Catalog import complete: ${added} item(s) added.`);
+  setStatus(`Catalog import complete: ${added} item(s).`);
 }
 
 function onCatalogReset() {
@@ -601,8 +708,8 @@ function onCatalogReset() {
 function parseCatalogText(text) {
   if (text.startsWith("[") || text.startsWith("{")) {
     try {
-      const json = JSON.parse(text);
-      const list = Array.isArray(json) ? json : [json];
+      const data = JSON.parse(text);
+      const list = Array.isArray(data) ? data : [data];
       return list.map(normalizeCatalogItem).filter(Boolean);
     } catch {
       return [];
@@ -612,18 +719,16 @@ function parseCatalogText(text) {
   const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
   if (!lines.length) return [];
 
-  const header = parseCSVLine(lines[0]).map((v) => v.toLowerCase());
-  const result = [];
-
+  const headers = parseCSVLine(lines[0]).map((v) => v.toLowerCase());
+  const items = [];
   for (const line of lines.slice(1)) {
     const cols = parseCSVLine(line);
     const row = {};
-    for (let i = 0; i < header.length; i += 1) row[header[i]] = cols[i] ?? "";
+    for (let i = 0; i < headers.length; i += 1) row[headers[i]] = cols[i] ?? "";
     const item = normalizeCatalogItem(row);
-    if (item) result.push(item);
+    if (item) items.push(item);
   }
-
-  return result;
+  return items;
 }
 
 function parseCSVLine(line) {
@@ -642,30 +747,27 @@ function parseCSVLine(line) {
       }
       continue;
     }
+
     if (ch === "," && !inQuotes) {
       out.push(current.trim());
       current = "";
       continue;
     }
+
     current += ch;
   }
-
   out.push(current.trim());
   return out;
 }
 
 function normalizeCatalogItem(row) {
   const name = String(row.name ?? "").trim();
-  if (!name) return null;
-
   const width = Number(row.width);
   const depth = Number(row.depth);
   const height = Number(row.height);
-  if (!(width > 0 && depth > 0 && height > 0)) return null;
+  if (!name || !(width > 0) || !(depth > 0) || !(height > 0)) return null;
 
-  const color = validHex(String(row.color ?? "#7b5a3a").trim()) ? String(row.color).trim() : "#7b5a3a";
-  const price = Number(row.price);
-
+  const colorRaw = String(row.color ?? "#7b5a3a").trim();
   return {
     id: crypto.randomUUID(),
     name,
@@ -673,207 +775,82 @@ function normalizeCatalogItem(row) {
     width,
     depth,
     height,
-    color,
-    price: Number.isFinite(price) && price >= 0 ? price : 0,
+    color: validHex(colorRaw) ? colorRaw : "#7b5a3a",
+    price: Math.max(0, Number(row.price) || 0),
     link: String(row.link ?? "https://www.google.com/search?q=furniture").trim() || "https://www.google.com/search?q=furniture",
     image: String(row.image ?? "").trim() || "https://images.unsplash.com/photo-1484101403633-562f891dc89a?auto=format&fit=crop&w=480&q=80",
   };
 }
 
 function inferPresetFromLink(link) {
-  const text = link.toLowerCase();
-
-  if (text.includes("sofa") || text.includes("couch") || text.includes("sectional")) {
-    return { width: 7.5, depth: 3.2, height: 3, color: "#8f4a31" };
-  }
-  if (text.includes("bed") || text.includes("mattress")) {
-    return { width: 5.2, depth: 6.8, height: 2, color: "#6d4c41" };
-  }
-  if (text.includes("tv") || text.includes("monitor")) {
-    return { width: 4.8, depth: 0.4, height: 2.8, color: "#1f2937" };
-  }
-  if (text.includes("desk") || text.includes("table")) {
-    return { width: 4.8, depth: 2.4, height: 2.5, color: "#7b5a3a" };
-  }
-  if (text.includes("chair")) {
-    return { width: 2, depth: 2, height: 3, color: "#5b6474" };
-  }
-
+  const s = link.toLowerCase();
+  if (s.includes("sofa") || s.includes("couch") || s.includes("sectional")) return { width: 7.5, depth: 3.2, height: 3, color: "#8f4a31" };
+  if (s.includes("bed") || s.includes("mattress")) return { width: 5.2, depth: 6.8, height: 2, color: "#6d4c41" };
+  if (s.includes("tv") || s.includes("monitor")) return { width: 4.8, depth: 0.4, height: 2.8, color: "#1f2937" };
+  if (s.includes("desk") || s.includes("table")) return { width: 4.8, depth: 2.4, height: 2.5, color: "#7b5a3a" };
+  if (s.includes("chair")) return { width: 2, depth: 2, height: 3, color: "#4b5563" };
   return { width: 3, depth: 2, height: 3, color: "#7b5a3a" };
 }
 
 function deriveNameFromUrl(url) {
-  const pathPart = url.pathname
-    .split("/")
-    .filter(Boolean)
-    .pop();
+  const leaf = url.pathname.split("/").filter(Boolean).pop();
+  if (!leaf) return `${url.hostname.replace("www.", "")} item`;
 
-  if (!pathPart) {
-    return `${url.hostname.replace("www.", "")} item`;
-  }
-
-  const clean = decodeURIComponent(pathPart)
+  const cleaned = decodeURIComponent(leaf)
     .replaceAll(/[-_]+/g, " ")
     .replaceAll(/[0-9]+/g, " ")
-    .replaceAll(/\\s+/g, " ")
+    .replaceAll(/\s+/g, " ")
     .trim();
 
-  if (!clean) {
-    return `${url.hostname.replace("www.", "")} item`;
-  }
-
-  return clean
+  if (!cleaned) return `${url.hostname.replace("www.", "")} item`;
+  return cleaned
     .split(" ")
     .slice(0, 6)
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
 }
 
-function onAddTrackerItem(event) {
-  event.preventDefault();
-  state.tracker.push({
-    id: crypto.randomUUID(),
-    name: document.getElementById("tracker-name").value.trim(),
-    qty: Number(document.getElementById("tracker-qty").value),
-    price: Number(document.getElementById("tracker-price").value),
-    notes: document.getElementById("tracker-notes").value.trim(),
-    status: "needed",
-  });
-  save("apartmentPlannerTracker", state.tracker);
-  renderTracker();
-  event.target.reset();
-  document.getElementById("tracker-qty").value = 1;
-  document.getElementById("tracker-price").value = 0;
+function onResize() {
+  camera.aspect = viewer.clientWidth / viewer.clientHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(viewer.clientWidth, viewer.clientHeight);
 }
 
-function buildMeasuredFloorPlan() {
-  return centerRawPoints(getRawFloorPlanPoints());
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
 }
 
-function buildInteriorWallSegments() {
-  const toCentered = rawToCenteredFactory();
-  const xEntryRight = DIM.bedroomWidth + DIM.livingWidth;
-  const zEntryCloset = DIM.totalDepth - 5.2;
-
-  return [
-    { a: toCentered(DIM.bedroomWidth, 0), b: toCentered(DIM.bedroomWidth, DIM.hallDepth) },
-    { a: toCentered(DIM.bedroomWidth + 1.15, 2.2), b: toCentered(DIM.bedroomWidth + 1.15, DIM.dividerRun) },
-    { a: toCentered(DIM.bedroomWidth + 1.15, DIM.dividerRun), b: toCentered(DIM.bedroomWidth, DIM.dividerRun) },
-    { a: toCentered(xEntryRight, DIM.rightDrop), b: toCentered(xEntryRight, DIM.totalDepth) },
-    { a: toCentered(11.0, zEntryCloset), b: toCentered(xEntryRight - DIM.entrySpan, zEntryCloset) },
-  ];
-}
-
-function getRawFloorPlanPoints() {
-  const xEntryRight = DIM.bedroomWidth + DIM.livingWidth;
-  const xEntryLeft = xEntryRight - DIM.entrySpan;
-  const xRightOuter = xEntryRight + DIM.kitchenReturn;
-  const zEntryNotchTop = DIM.totalDepth - 2.8;
-  const zBathNotchTop = DIM.totalDepth - 5.2;
-
-  return [
-    { x: 0, y: 0 },
-    { x: xEntryRight, y: 0 },
-    { x: xEntryRight, y: -DIM.kitchenTopRise },
-    { x: xRightOuter, y: -DIM.kitchenTopRise },
-    { x: xRightOuter, y: DIM.rightDrop },
-    { x: xEntryRight, y: DIM.rightDrop },
-    { x: xEntryRight, y: DIM.totalDepth },
-    { x: xEntryLeft, y: DIM.totalDepth },
-    { x: xEntryLeft, y: zEntryNotchTop },
-    { x: 11.0, y: zEntryNotchTop },
-    { x: 11.0, y: zBathNotchTop },
-    { x: 9.0, y: zBathNotchTop },
-    { x: 9.0, y: DIM.totalDepth },
-    { x: 0, y: DIM.totalDepth },
-  ];
-}
-
-function centerRawPoints(raw) {
-  const ext = getExtents(raw);
-  const cx = (ext.minX + ext.maxX) / 2;
-  const cy = (ext.minY + ext.maxY) / 2;
-  return raw.map((p) => ({ x: p.x - cx, y: p.y - cy }));
-}
-
-function rawToCenteredFactory() {
-  const ext = getExtents(getRawFloorPlanPoints());
-  const cx = (ext.minX + ext.maxX) / 2;
-  const cy = (ext.minY + ext.maxY) / 2;
-  return (x, y) => ({ x: x - cx, y: y - cy });
-}
-
-function getRoomLabels() {
-  const toCentered = rawToCenteredFactory();
-  return [
-    { text: "Bedroom", ...toCentered(4.8, 10.5) },
-    { text: "Living Room", ...toCentered(16.4, 11.2) },
-    { text: "Kitchen", ...toCentered(26.5, 2.8) },
-    { text: "Bathroom", ...toCentered(3.8, 27.2) },
-    { text: "Entry", ...toCentered(16.2, 27.4) },
-  ];
-}
-
-function getDoorArcs() {
-  const toCentered = rawToCenteredFactory();
-  const xEntryRight = DIM.bedroomWidth + DIM.livingWidth;
-  const xEntryLeft = xEntryRight - DIM.entrySpan;
-
-  return [
-    withCentered(10.58, 16.0, 1.2, 90, 180),
-    withCentered(11.2, DIM.totalDepth - 5.2, 1.1, -90, 0),
-    withCentered(xEntryRight, DIM.totalDepth - 3.4, 1.2, 180, 270),
-    withCentered(xEntryLeft + 1.2, DIM.totalDepth, 1.15, -90, 0),
-  ];
-
-  function withCentered(x, y, r, start, end) {
-    const p = toCentered(x, y);
-    return { cx: p.x, cy: p.y, r, start, end };
-  }
-}
-
-function clientToSvg(event) {
-  const pt = svg.createSVGPoint();
-  pt.x = event.clientX;
-  pt.y = event.clientY;
-  return pt.matrixTransform(svg.getScreenCTM().inverse());
-}
-
-function describeArc(cx, cy, r, startDeg, endDeg) {
-  const start = polar(cx, cy, r, endDeg);
-  const end = polar(cx, cy, r, startDeg);
-  const largeArcFlag = Math.abs(endDeg - startDeg) <= 180 ? "0" : "1";
-  return `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArcFlag} 0 ${end.x} ${end.y}`;
-}
-
-function polar(cx, cy, r, deg) {
-  const rad = ((deg - 90) * Math.PI) / 180;
-  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
-}
-
-function svgEl(tag, attrs = {}, text = "") {
-  const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
-  for (const [key, value] of Object.entries(attrs)) el.setAttribute(key, value);
-  if (text) el.textContent = text;
-  return el;
-}
-
-function normalizeFurniture(items) {
-  return items
+function loadFurniture() {
+  const data = load("apartmentPlannerFurniture", []);
+  return data
     .map((item) => ({
       ...item,
-      y: Number.isFinite(item.y) ? item.y : Number.isFinite(item.z) ? item.z : center.y,
-      rotation: Number.isFinite(item.rotation) ? item.rotation : Number.isFinite(item.rotationY) ? toDegrees(item.rotationY) : 0,
+      z: Number.isFinite(item.z) ? item.z : Number.isFinite(item.y) ? item.y : 0,
+      rotationY: Number.isFinite(item.rotationY)
+        ? item.rotationY
+        : Number.isFinite(item.rotation)
+          ? (item.rotation * Math.PI) / 180
+          : 0,
     }))
-    .filter((item) => item.width > 0 && item.depth > 0);
-}
-
-function toDegrees(rad) {
-  return (rad * 180) / Math.PI;
+    .filter((item) => item.width > 0 && item.depth > 0 && item.height > 0);
 }
 
 function findFurniture(id) {
   return state.furniture.find((f) => f.id === id) || null;
+}
+
+function getExtents(points) {
+  return points.reduce(
+    (acc, p) => ({
+      minX: Math.min(acc.minX, p.x),
+      maxX: Math.max(acc.maxX, p.x),
+      minZ: Math.min(acc.minZ, p.z),
+      maxZ: Math.max(acc.maxZ, p.z),
+    }),
+    { minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity }
+  );
 }
 
 function loadCatalog() {
@@ -882,32 +859,20 @@ function loadCatalog() {
   return DEFAULT_CATALOG_ITEMS.map((item) => ({ ...item }));
 }
 
-function getExtents(points) {
-  return points.reduce(
-    (acc, p) => ({
-      minX: Math.min(acc.minX, p.x),
-      maxX: Math.max(acc.maxX, p.x),
-      minY: Math.min(acc.minY, p.y),
-      maxY: Math.max(acc.maxY, p.y),
-    }),
-    { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity }
-  );
+function normalizeKey(name, link) {
+  return `${String(name).trim().toLowerCase()}|${String(link).trim().toLowerCase()}`;
 }
 
 function setStatus(text) {
   statusEl.textContent = text;
 }
 
-function validHex(value) {
-  return /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(value);
-}
-
-function normalizeKey(name, link) {
-  return `${String(name).trim().toLowerCase()}|${String(link).trim().toLowerCase()}`;
-}
-
 function snap(value, step) {
   return Math.round(value / step) * step;
+}
+
+function validHex(value) {
+  return /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(value);
 }
 
 function load(key, fallback) {
