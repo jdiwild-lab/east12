@@ -23,14 +23,6 @@ const PLAN_REFERENCE = {
   imageSrc: "./floorplan-reference.png",
   imageWidthPx: 1200,
   imageHeightPx: 849,
-  calibration: {
-    // Two known dimensions from the plan (living room 19'11" and 17'4")
-    originPx: { x: 500, y: 186 }, // living room NW interior corner
-    xRefPx: { x: 892, y: 186 }, // living room NE interior corner
-    zRefPx: { x: 500, y: 434 }, // living room SW interior corner
-    xDistanceIn: 239,
-    zDistanceIn: 208,
-  },
 };
 
 const OPENING_SPEC = {
@@ -47,7 +39,7 @@ const OPENING_SPEC = {
       widthIn: 36,
       heightIn: 80,
       wall: "FOYER_SOUTH",
-      hingePlanPx: { x: 760, y: 627 },
+      offsetFromWallStartIn: 81,
       hinge: "left",
       swing: "in",
     },
@@ -57,7 +49,7 @@ const OPENING_SPEC = {
       widthIn: 30,
       heightIn: 80,
       wall: "BED_LIVING",
-      hingePlanPx: { x: 499, y: 386 },
+      offsetFromWallStartIn: 138,
       hinge: "right",
       swing: "in",
     },
@@ -66,8 +58,8 @@ const OPENING_SPEC = {
       id: "bath_entry",
       widthIn: 30,
       heightIn: 80,
-      wall: "BATH_FOYER",
-      hingePlanPx: { x: 293, y: 577 },
+      wall: "BATH_SOUTH",
+      offsetFromWallStartIn: 176,
       hinge: "left",
       swing: "in",
     },
@@ -77,7 +69,7 @@ const OPENING_SPEC = {
       widthIn: 48,
       heightIn: 80,
       wall: "BED_LIVING",
-      hingePlanPx: { x: 499, y: 260 },
+      offsetFromWallStartIn: 62,
       hinge: "left",
       swing: "in",
     },
@@ -86,8 +78,8 @@ const OPENING_SPEC = {
       id: "foyer_closet_1",
       widthIn: 24,
       heightIn: 80,
-      wall: "LIVING_FOYER",
-      hingePlanPx: { x: 857, y: 452 },
+      wall: "FOYER_EAST",
+      offsetFromWallStartIn: 55,
       hinge: "left",
       swing: "in",
     },
@@ -96,8 +88,8 @@ const OPENING_SPEC = {
       id: "foyer_closet_2",
       widthIn: 24,
       heightIn: 80,
-      wall: "LIVING_FOYER",
-      hingePlanPx: { x: 857, y: 531 },
+      wall: "FOYER_EAST",
+      offsetFromWallStartIn: 121,
       hinge: "left",
       swing: "in",
     },
@@ -106,8 +98,8 @@ const OPENING_SPEC = {
       id: "foyer_closet_3",
       widthIn: 24,
       heightIn: 80,
-      wall: "LIVING_FOYER",
-      hingePlanPx: { x: 857, y: 604 },
+      wall: "FOYER_SOUTH",
+      offsetFromWallStartIn: 21,
       hinge: "left",
       swing: "in",
     },
@@ -118,7 +110,7 @@ const OPENING_SPEC = {
       heightIn: 60,
       sillHeightIn: 24,
       wall: "BEDROOM_WEST",
-      centerPlanPx: { x: 145, y: 331 },
+      centerOffsetFromWallStartIn: 70,
     },
     {
       type: "window",
@@ -127,7 +119,7 @@ const OPENING_SPEC = {
       heightIn: 60,
       sillHeightIn: 24,
       wall: "BEDROOM_NORTH",
-      centerPlanPx: { x: 365, y: 186 },
+      centerOffsetFromWallStartIn: 108,
     },
     {
       type: "window",
@@ -136,7 +128,7 @@ const OPENING_SPEC = {
       heightIn: 60,
       sillHeightIn: 24,
       wall: "BEDROOM_NORTH",
-      centerPlanPx: { x: 463, y: 186 },
+      centerOffsetFromWallStartIn: 167,
     },
     {
       type: "window",
@@ -145,7 +137,7 @@ const OPENING_SPEC = {
       heightIn: 60,
       sillHeightIn: 24,
       wall: "LIVING_NORTH",
-      centerPlanPx: { x: 620, y: 186 },
+      centerOffsetFromWallStartIn: 73,
     },
     {
       type: "window",
@@ -154,7 +146,7 @@ const OPENING_SPEC = {
       heightIn: 60,
       sillHeightIn: 24,
       wall: "LIVING_NORTH",
-      centerPlanPx: { x: 735, y: 186 },
+      centerOffsetFromWallStartIn: 143,
     },
     {
       type: "window",
@@ -163,7 +155,7 @@ const OPENING_SPEC = {
       heightIn: 60,
       sillHeightIn: 24,
       wall: "LIVING_NORTH",
-      centerPlanPx: { x: 846, y: 186 },
+      centerOffsetFromWallStartIn: 211,
     },
     {
       type: "window",
@@ -172,7 +164,7 @@ const OPENING_SPEC = {
       heightIn: 60,
       sillHeightIn: 24,
       wall: "KITCHEN_NORTH",
-      centerPlanPx: { x: 946, y: 102 },
+      centerOffsetFromWallStartIn: 33,
     },
     {
       type: "window",
@@ -180,8 +172,8 @@ const OPENING_SPEC = {
       widthIn: 48,
       heightIn: 60,
       sillHeightIn: 24,
-      wall: "BATH_WEST",
-      centerPlanPx: { x: 145, y: 548 },
+      wall: "BATH_SOUTH",
+      centerOffsetFromWallStartIn: 240,
     },
   ],
 };
@@ -226,24 +218,27 @@ const DEFAULT_CATALOG_ITEMS = [
 ];
 
 const RAW = buildRawGeometry();
-window.apartmentOpeningOffsets = RAW.openings.map((opening) => ({
-  type: opening.type,
-  id: opening.id,
-  wall: opening.wallId,
-  widthIn: opening.widthIn,
-  heightIn: opening.heightIn,
-  sillHeightIn: opening.sillHeightIn,
-  offsetFromWallStartIn: opening.offsetFromWallStartIn,
-  centerOffsetFromWallStartIn: opening.centerOffsetFromWallStartIn,
-  hinge: opening.hinge,
-  swing: opening.swing,
-}));
+const DEFAULT_ORIGIN_WORLD_IN = {
+  x: Math.round(RAW.referenceOrigin.x * INCHES_PER_FOOT),
+  z: Math.round(RAW.referenceOrigin.z * INCHES_PER_FOOT),
+};
 
 const state = {
   furniture: loadFurniture(),
   tracker: load("apartmentPlannerTracker", []),
   catalog: loadCatalog(),
   selectedId: null,
+  openingsSpec: load("apartmentOpeningsSpec", OPENING_SPEC.openings),
+  annotation: {
+    visible: false,
+    mode: null,
+    calibration: load("planAnnotationCalibration", null),
+    calA: null,
+    calB: null,
+    openings: load("planAnnotatedOpenings", []),
+    image: null,
+    imageLoaded: false,
+  },
 };
 
 const viewer = document.getElementById("viewer");
@@ -276,20 +271,7 @@ const furnitureGroup = new THREE.Group();
 scene.add(apartmentGroup);
 scene.add(furnitureGroup);
 
-const floorShape = shapeFromPoints(RAW.floor);
-const floorMesh = new THREE.Mesh(
-  new THREE.ShapeGeometry(floorShape),
-  new THREE.MeshStandardMaterial({ color: "#e8e0d2", roughness: 0.95 })
-);
-floorMesh.rotation.x = -Math.PI / 2;
-floorMesh.receiveShadow = true;
-apartmentGroup.add(floorMesh);
-
-addPlanReferenceUnderlay(RAW.planCalibration);
-buildWallsWithOpenings(RAW.walls, RAW.openings);
-addRoomLabels();
-addDoorSwings();
-addWindowGlazing();
+rebuildApartment();
 
 const grid = new THREE.GridHelper(100, 100, 0xa8b1bc, 0xd5dce5);
 grid.position.y = 0.01;
@@ -329,6 +311,13 @@ document.getElementById("link-form").addEventListener("submit", onAddFromLink);
 document.getElementById("tracker-form").addEventListener("submit", onAddTrackerItem);
 document.getElementById("catalog-import-form").addEventListener("submit", onCatalogImport);
 document.getElementById("catalog-reset-btn").addEventListener("click", onCatalogReset);
+document.getElementById("annotator-toggle-btn").addEventListener("click", onToggleAnnotator);
+document.getElementById("annotator-clear-btn").addEventListener("click", onClearAnnotatedOpenings);
+document.getElementById("set-cal-a-btn").addEventListener("click", () => setAnnotatorMode("calA"));
+document.getElementById("set-cal-b-btn").addEventListener("click", () => setAnnotatorMode("calB"));
+document.getElementById("apply-calibration-btn").addEventListener("click", onApplyCalibration);
+document.getElementById("add-opening-click-btn").addEventListener("click", () => setAnnotatorMode("addOpening"));
+document.getElementById("opening-type").addEventListener("change", onOpeningTypeChange);
 
 animate();
 
@@ -383,8 +372,7 @@ function buildRawGeometry() {
     b: { x: wall.b.x - center.x, z: wall.b.z - center.z },
   }));
 
-  const planCalibration = createPlanCalibration(center, x1, zTop);
-  const openings = resolveOpenings(OPENING_SPEC, walls, planCalibration);
+  const openings = resolveOpenings(OPENING_SPEC, walls);
   const interiorWalls = walls.filter((wall) => wall.kind === "interior");
 
   return {
@@ -393,7 +381,7 @@ function buildRawGeometry() {
     walls,
     interiorWalls,
     openings,
-    planCalibration,
+    referenceOrigin: { x: x1 - center.x, z: zTop - center.z },
     rooms: {
       bedroom: toCenteredPoint(ROOM.BEDROOM.width * 0.5, ROOM.BEDROOM.depth * 0.52, center),
       living: toCenteredPoint(x1 + ROOM.LIVING.width * 0.5, ROOM.LIVING.depth * 0.5, center),
@@ -401,51 +389,6 @@ function buildRawGeometry() {
       bath: toCenteredPoint(ROOM.BATH.width * 0.5, zBedroomBottom + ROOM.BATH.depth * 0.5, center),
       foyer: toCenteredPoint(x1 + ROOM.LIVING.width * 0.6, 22, center),
     },
-  };
-}
-
-function createPlanCalibration(center, livingStartX, livingStartZ) {
-  const c = PLAN_REFERENCE.calibration;
-  const o = c.originPx;
-  const x = c.xRefPx;
-  const z = c.zRefPx;
-
-  const pxX = { x: x.x - o.x, y: x.y - o.y };
-  const pxZ = { x: z.x - o.x, y: z.y - o.y };
-  const det = pxX.x * pxZ.y - pxX.y * pxZ.x;
-  const safeDet = Math.abs(det) < 1e-6 ? 1 : det;
-
-  const worldOrigin = { x: livingStartX - center.x, z: livingStartZ - center.z };
-  const worldXAxis = { x: inchesToFeet(c.xDistanceIn), z: 0 };
-  const worldZAxis = { x: 0, z: inchesToFeet(c.zDistanceIn) };
-
-  return {
-    image: {
-      src: PLAN_REFERENCE.imageSrc,
-      widthPx: PLAN_REFERENCE.imageWidthPx,
-      heightPx: PLAN_REFERENCE.imageHeightPx,
-    },
-    originPx: o,
-    invPixelBasis: {
-      m00: pxZ.y / safeDet,
-      m01: -pxZ.x / safeDet,
-      m10: -pxX.y / safeDet,
-      m11: pxX.x / safeDet,
-    },
-    worldOrigin,
-    worldXAxis,
-    worldZAxis,
-  };
-}
-
-function planPxToWorld(px, calibration) {
-  const dx = px.x - calibration.originPx.x;
-  const dy = px.y - calibration.originPx.y;
-  const a = calibration.invPixelBasis.m00 * dx + calibration.invPixelBasis.m01 * dy;
-  const b = calibration.invPixelBasis.m10 * dx + calibration.invPixelBasis.m11 * dy;
-  return {
-    x: calibration.worldOrigin.x + calibration.worldXAxis.x * a + calibration.worldZAxis.x * b,
-    z: calibration.worldOrigin.z + calibration.worldXAxis.z * a + calibration.worldZAxis.z * b,
   };
 }
 
@@ -464,40 +407,27 @@ function projectPointToWall(point, wall) {
   };
 }
 
-function snapPlanPointToWall(planPointPx, walls, calibration, wallHint) {
-  const worldPoint = planPxToWorld(planPointPx, calibration);
+function snapWorldPointToWall(worldPoint, walls) {
   let best = null;
   for (const wall of walls) {
     const proj = projectPointToWall(worldPoint, wall);
-    if (!best || proj.distanceFt < best.distanceFt) best = { wall, ...proj, sourceHint: wallHint ?? null };
+    if (!best || proj.distanceFt < best.distanceFt) best = { wall, ...proj };
   }
   return best;
 }
 
-function resolveOpenings(spec, walls, planCalibration) {
+function resolveOpenings(spec, walls) {
   const wallMap = new Map(walls.map((wall) => [wall.id, wall]));
   return spec.openings
     .map((opening) => {
-      let snapped = null;
-      if (opening.type === "door" && opening.hingePlanPx) {
-        snapped = snapPlanPointToWall(opening.hingePlanPx, walls, planCalibration, opening.wall);
-      }
-      if (opening.type === "window" && opening.centerPlanPx) {
-        snapped = snapPlanPointToWall(opening.centerPlanPx, walls, planCalibration, opening.wall);
-      }
-
-      const wall = snapped?.wall ?? wallMap.get(opening.wall);
+      const wall = wallMap.get(opening.wall ?? opening.wallId);
       if (!wall) return null;
-      const widthFt = inchesToFeet(opening.widthIn ?? spec.defaults.window.widthIn);
+      const widthIn = Number(opening.widthIn ?? spec.defaults.window.widthIn);
+      const widthFt = inchesToFeet(widthIn);
       const wallLen = wallLength(wall);
-      const hingeOffsetFallbackFt = inchesToFeet(opening.offsetFromWallStartIn ?? 0);
       const startFt = opening.type === "door"
-        ? (opening.hinge === "left"
-          ? (snapped?.offsetFt ?? hingeOffsetFallbackFt)
-          : (snapped?.offsetFt ?? hingeOffsetFallbackFt) - widthFt)
-        : (snapped
-          ? snapped.offsetFt - widthFt / 2
-          : inchesToFeet((opening.centerOffsetFromWallStartIn ?? 0) - opening.widthIn / 2));
+        ? inchesToFeet(Number(opening.offsetFromWallStartIn ?? 0))
+        : inchesToFeet(Number(opening.centerOffsetFromWallStartIn ?? 0) - widthIn / 2);
       const clampedStart = THREE.MathUtils.clamp(startFt, 0, wallLen);
       const clampedEnd = THREE.MathUtils.clamp(clampedStart + widthFt, 0, wallLen);
       if (clampedEnd - clampedStart < 0.02) return null;
@@ -507,20 +437,22 @@ function resolveOpenings(spec, walls, planCalibration) {
           ...opening,
           wallId: wall.id,
           wall,
+          widthIn,
           startOffsetFt: clampedStart,
           endOffsetFt: clampedEnd,
           offsetFromWallStartIn: Math.round(clampedStart * INCHES_PER_FOOT),
           bottomFt: 0,
-          topFt: inchesToFeet(opening.heightIn ?? spec.defaults.doorHeightIn),
+          topFt: inchesToFeet(Number(opening.heightIn ?? spec.defaults.doorHeightIn)),
         };
       }
 
-      const sill = inchesToFeet(opening.sillHeightIn ?? spec.defaults.window.sillHeightIn);
-      const height = inchesToFeet(opening.heightIn ?? spec.defaults.window.heightIn);
+      const sill = inchesToFeet(Number(opening.sillHeightIn ?? spec.defaults.window.sillHeightIn));
+      const height = inchesToFeet(Number(opening.heightIn ?? spec.defaults.window.heightIn));
       return {
         ...opening,
         wallId: wall.id,
         wall,
+        widthIn,
         startOffsetFt: clampedStart,
         endOffsetFt: clampedEnd,
         centerOffsetFromWallStartIn: Math.round(((clampedStart + clampedEnd) / 2) * INCHES_PER_FOOT),
@@ -529,57 +461,6 @@ function resolveOpenings(spec, walls, planCalibration) {
       };
     })
     .filter(Boolean);
-}
-
-function addPlanReferenceUnderlay(calibration) {
-  if (!calibration?.image?.src) return;
-  const textureLoader = new THREE.TextureLoader();
-  textureLoader.load(
-    calibration.image.src,
-    (texture) => {
-      const w = calibration.image.widthPx;
-      const h = calibration.image.heightPx;
-      const p00 = planPxToWorld({ x: 0, y: 0 }, calibration);
-      const p10 = planPxToWorld({ x: w, y: 0 }, calibration);
-      const p11 = planPxToWorld({ x: w, y: h }, calibration);
-      const p01 = planPxToWorld({ x: 0, y: h }, calibration);
-
-      const geometry = new THREE.BufferGeometry();
-      const vertices = new Float32Array([
-        p00.x, 0.02, p00.z,
-        p10.x, 0.02, p10.z,
-        p11.x, 0.02, p11.z,
-        p01.x, 0.02, p01.z,
-      ]);
-      const uvs = new Float32Array([
-        0, 1,
-        1, 1,
-        1, 0,
-        0, 0,
-      ]);
-      geometry.setAttribute("position", new THREE.BufferAttribute(vertices, 3));
-      geometry.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
-      geometry.setIndex([0, 1, 2, 0, 2, 3]);
-      geometry.computeVertexNormals();
-
-      const mesh = new THREE.Mesh(
-        geometry,
-        new THREE.MeshBasicMaterial({
-          map: texture,
-          transparent: true,
-          opacity: 0.42,
-          depthWrite: false,
-          side: THREE.DoubleSide,
-        })
-      );
-      mesh.renderOrder = -1;
-      apartmentGroup.add(mesh);
-    },
-    undefined,
-    () => {
-      setStatus('Reference image not loaded. Place "floorplan-reference.png" next to index.html.');
-    }
-  );
 }
 
 function buildWallsWithOpenings(walls, openings) {
@@ -662,6 +543,43 @@ function buildWallMeshFromOpenings(wall, wallOpenings) {
   }
 }
 
+function rebuildApartment() {
+  apartmentGroup.clear();
+
+  const floorShape = shapeFromPoints(RAW.floor);
+  const floorMesh = new THREE.Mesh(
+    new THREE.ShapeGeometry(floorShape),
+    new THREE.MeshStandardMaterial({ color: "#e8e0d2", roughness: 0.95 })
+  );
+  floorMesh.rotation.x = -Math.PI / 2;
+  floorMesh.receiveShadow = true;
+  apartmentGroup.add(floorMesh);
+
+  const openingSpec = {
+    ...OPENING_SPEC,
+    openings: state.openingsSpec,
+  };
+  state.resolvedOpenings = resolveOpenings(openingSpec, RAW.walls);
+
+  buildWallsWithOpenings(RAW.walls, state.resolvedOpenings);
+  addRoomLabels();
+  addDoorSwings(state.resolvedOpenings);
+  addWindowGlazing(state.resolvedOpenings);
+
+  window.apartmentOpeningOffsets = state.resolvedOpenings.map((opening) => ({
+    type: opening.type,
+    id: opening.id,
+    wall: opening.wallId,
+    widthIn: opening.widthIn,
+    heightIn: opening.heightIn,
+    sillHeightIn: opening.sillHeightIn,
+    offsetFromWallStartIn: opening.offsetFromWallStartIn,
+    centerOffsetFromWallStartIn: opening.centerOffsetFromWallStartIn,
+    hinge: opening.hinge,
+    swing: opening.swing,
+  }));
+}
+
 function addRoomLabels() {
   addLabel("BEDROOM", RAW.rooms.bedroom, 6.4, 1.5, 4.8);
   addLabel("LIVING ROOM", RAW.rooms.living, 7.5, 1.5, 4.8);
@@ -670,8 +588,8 @@ function addRoomLabels() {
   addLabel("FOYER", RAW.rooms.foyer, 3.8, 1.2, 4.8);
 }
 
-function addWindowGlazing() {
-  for (const opening of RAW.openings) {
+function addWindowGlazing(openings) {
+  for (const opening of openings) {
     if (opening.type !== "window") continue;
     const wall = opening.wall;
     const length = wallLength(wall);
@@ -699,8 +617,8 @@ function addWindowGlazing() {
   }
 }
 
-function addDoorSwings() {
-  for (const door of RAW.openings) {
+function addDoorSwings(openings) {
+  for (const door of openings) {
     if (door.type !== "door") continue;
     const wall = door.wall;
     const length = wallLength(wall);
@@ -762,6 +680,291 @@ function addLabel(text, pos, sx, sy, y = 0.4) {
   sprite.scale.set(sx, sy, 1);
   sprite.position.set(pos.x, y, pos.z);
   apartmentGroup.add(sprite);
+}
+
+const planOverlayEl = document.getElementById("plan-overlay");
+const planCanvas = document.getElementById("plan-canvas");
+const planCtx = planCanvas.getContext("2d");
+const annotationListEl = document.getElementById("annotation-list");
+
+initAnnotator();
+
+function initAnnotator() {
+  document.getElementById("origin-world-x-in").value = DEFAULT_ORIGIN_WORLD_IN.x;
+  document.getElementById("origin-world-z-in").value = DEFAULT_ORIGIN_WORLD_IN.z;
+  planCanvas.addEventListener("pointerdown", onPlanCanvasPointerDown);
+  loadPlanImage();
+  renderAnnotationList();
+  renderPlanCanvas();
+}
+
+function loadPlanImage() {
+  const img = new Image();
+  img.onload = () => {
+    state.annotation.image = img;
+    state.annotation.imageLoaded = true;
+    renderPlanCanvas();
+  };
+  img.onerror = () => {
+    state.annotation.imageLoaded = false;
+    setStatus('Could not load floor plan image. Add "floorplan-reference.png" next to index.html.');
+    renderPlanCanvas();
+  };
+  img.src = PLAN_REFERENCE.imageSrc;
+}
+
+function onToggleAnnotator() {
+  state.annotation.visible = !state.annotation.visible;
+  planOverlayEl.classList.toggle("hidden", !state.annotation.visible);
+  document.getElementById("annotator-toggle-btn").textContent = state.annotation.visible ? "Hide Overlay" : "Show Overlay";
+  renderPlanCanvas();
+}
+
+function setAnnotatorMode(mode) {
+  state.annotation.mode = mode;
+  if (mode === "calA") setStatus("Click point A on the floor plan.");
+  if (mode === "calB") setStatus("Click point B on the floor plan.");
+  if (mode === "addOpening") setStatus("Click the opening center on the floor plan.");
+}
+
+function onApplyCalibration() {
+  if (!state.annotation.calA || !state.annotation.calB) {
+    setStatus("Pick Cal A and Cal B first.");
+    return;
+  }
+  const knownDistanceIn = Number(document.getElementById("known-distance-in").value);
+  if (!(knownDistanceIn > 0)) {
+    setStatus("Known dimension must be > 0.");
+    return;
+  }
+
+  const axis = document.getElementById("cal-axis").value;
+  const originWorldIn = {
+    x: Number(document.getElementById("origin-world-x-in").value),
+    z: Number(document.getElementById("origin-world-z-in").value),
+  };
+  const dx = state.annotation.calB.x - state.annotation.calA.x;
+  const dy = state.annotation.calB.y - state.annotation.calA.y;
+  const pxDistance = Math.hypot(dx, dy);
+  if (pxDistance < 2) {
+    setStatus("Calibration points are too close.");
+    return;
+  }
+
+  const ux = dx / pxDistance;
+  const uy = dy / pxDistance;
+  const xAxisPx = axis === "x" ? { x: ux, y: uy } : { x: uy, y: -ux };
+  const zAxisPx = axis === "x" ? { x: -uy, y: ux } : { x: ux, y: uy };
+
+  state.annotation.calibration = {
+    originPx: { ...state.annotation.calA },
+    xAxisPx,
+    zAxisPx,
+    pxPerIn: pxDistance / knownDistanceIn,
+    originWorldIn,
+  };
+  save("planAnnotationCalibration", state.annotation.calibration);
+  setStatus("Calibration applied.");
+  renderPlanCanvas();
+}
+
+function onOpeningTypeChange() {
+  const type = document.getElementById("opening-type").value;
+  if (type === "door") {
+    document.getElementById("opening-width-in").value = 36;
+    document.getElementById("opening-height-in").value = 80;
+  } else {
+    document.getElementById("opening-width-in").value = 48;
+    document.getElementById("opening-height-in").value = 60;
+  }
+}
+
+function onPlanCanvasPointerDown(event) {
+  const px = pointerEventToPlanPx(event);
+  if (!px) return;
+
+  if (state.annotation.mode === "calA") {
+    state.annotation.calA = px;
+    state.annotation.mode = null;
+    renderPlanCanvas();
+    return;
+  }
+
+  if (state.annotation.mode === "calB") {
+    state.annotation.calB = px;
+    state.annotation.mode = null;
+    renderPlanCanvas();
+    return;
+  }
+
+  if (state.annotation.mode === "addOpening") {
+    addOpeningFromPlanClick(px);
+    state.annotation.mode = null;
+  }
+}
+
+function pointerEventToPlanPx(event) {
+  const rect = planCanvas.getBoundingClientRect();
+  if (!rect.width || !rect.height) return null;
+  const x = ((event.clientX - rect.left) / rect.width) * planCanvas.width;
+  const y = ((event.clientY - rect.top) / rect.height) * planCanvas.height;
+  return {
+    x: THREE.MathUtils.clamp(x, 0, planCanvas.width),
+    y: THREE.MathUtils.clamp(y, 0, planCanvas.height),
+  };
+}
+
+function planPxToWorldIn(px) {
+  const c = state.annotation.calibration;
+  if (!c) return null;
+  const dx = px.x - c.originPx.x;
+  const dy = px.y - c.originPx.y;
+  const xIn = c.originWorldIn.x + (dx * c.xAxisPx.x + dy * c.xAxisPx.y) / c.pxPerIn;
+  const zIn = c.originWorldIn.z + (dx * c.zAxisPx.x + dy * c.zAxisPx.y) / c.pxPerIn;
+  return { xIn, zIn };
+}
+
+function addOpeningFromPlanClick(planPx) {
+  const worldIn = planPxToWorldIn(planPx);
+  if (!worldIn) {
+    setStatus("Apply calibration before adding openings.");
+    return;
+  }
+  const worldFt = { x: worldIn.xIn / INCHES_PER_FOOT, z: worldIn.zIn / INCHES_PER_FOOT };
+  const snapped = snapWorldPointToWall(worldFt, RAW.walls);
+  if (!snapped) {
+    setStatus("Could not snap to wall.");
+    return;
+  }
+
+  const type = document.getElementById("opening-type").value;
+  const idInput = document.getElementById("opening-id");
+  const id = idInput.value.trim() || `${type}_${crypto.randomUUID().slice(0, 8)}`;
+  const widthIn = Number(document.getElementById("opening-width-in").value);
+  const heightIn = Number(document.getElementById("opening-height-in").value);
+  const sillHeightIn = Number(document.getElementById("opening-sill-in").value);
+  const hinge = document.getElementById("opening-hinge").value;
+  const swing = document.getElementById("opening-swing").value;
+  if (!(widthIn > 0) || !(heightIn > 0)) {
+    setStatus("Opening width/height must be > 0.");
+    return;
+  }
+
+  const centerOffsetIn = snapped.offsetFt * INCHES_PER_FOOT;
+  const next = {
+    type,
+    id,
+    wall: snapped.wall.id,
+    widthIn,
+    heightIn,
+    ...(type === "door"
+      ? {
+          offsetFromWallStartIn: Math.max(0, Math.round(centerOffsetIn - widthIn / 2)),
+          hinge,
+          swing,
+        }
+      : {
+          sillHeightIn: Number.isFinite(sillHeightIn) ? sillHeightIn : OPENING_SPEC.defaults.window.sillHeightIn,
+          centerOffsetFromWallStartIn: Math.round(centerOffsetIn),
+        }),
+  };
+
+  upsertOpeningSpec(next);
+
+  const ann = {
+    id,
+    type,
+    planPx,
+    wall: next.wall,
+    offsetIn: next.offsetFromWallStartIn ?? next.centerOffsetFromWallStartIn,
+  };
+  const idx = state.annotation.openings.findIndex((item) => item.id === id);
+  if (idx >= 0) state.annotation.openings[idx] = ann;
+  else state.annotation.openings.push(ann);
+  save("planAnnotatedOpenings", state.annotation.openings);
+
+  idInput.value = "";
+  renderAnnotationList();
+  renderPlanCanvas();
+  rebuildApartment();
+  setStatus(`Added ${type} ${id} on ${next.wall}.`);
+}
+
+function upsertOpeningSpec(opening) {
+  const idx = state.openingsSpec.findIndex((item) => item.id === opening.id);
+  if (idx >= 0) state.openingsSpec[idx] = opening;
+  else state.openingsSpec.push(opening);
+  save("apartmentOpeningsSpec", state.openingsSpec);
+}
+
+function onClearAnnotatedOpenings() {
+  state.annotation.openings = [];
+  state.openingsSpec = [];
+  save("planAnnotatedOpenings", state.annotation.openings);
+  save("apartmentOpeningsSpec", state.openingsSpec);
+  renderAnnotationList();
+  renderPlanCanvas();
+  rebuildApartment();
+  setStatus("Cleared all openings.");
+}
+
+function renderAnnotationList() {
+  annotationListEl.innerHTML = "";
+  for (const opening of state.openingsSpec) {
+    const row = document.createElement("div");
+    row.className = "tracker-item";
+    row.innerHTML = `
+      <div>
+        <strong>${escapeHtml(opening.id)}</strong>
+        <small>${opening.type} • ${opening.wall}</small>
+        <small>${opening.type === "door" ? `offset ${opening.offsetFromWallStartIn}"` : `center ${opening.centerOffsetFromWallStartIn}"`}</small>
+      </div>
+      <div class="tracker-actions">
+        <button data-id="${opening.id}" data-action="delete" class="ghost">Delete</button>
+      </div>
+    `;
+    annotationListEl.appendChild(row);
+  }
+
+  annotationListEl.querySelectorAll("button[data-action='delete']").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.dataset.id;
+      state.openingsSpec = state.openingsSpec.filter((o) => o.id !== id);
+      state.annotation.openings = state.annotation.openings.filter((o) => o.id !== id);
+      save("apartmentOpeningsSpec", state.openingsSpec);
+      save("planAnnotatedOpenings", state.annotation.openings);
+      renderAnnotationList();
+      renderPlanCanvas();
+      rebuildApartment();
+    });
+  });
+}
+
+function renderPlanCanvas() {
+  planCtx.clearRect(0, 0, planCanvas.width, planCanvas.height);
+  if (state.annotation.imageLoaded && state.annotation.image) {
+    planCtx.drawImage(state.annotation.image, 0, 0, planCanvas.width, planCanvas.height);
+  } else {
+    planCtx.fillStyle = "#111827";
+    planCtx.fillRect(0, 0, planCanvas.width, planCanvas.height);
+  }
+
+  drawAnnotationPoint(state.annotation.calA, "#22c55e", "A");
+  drawAnnotationPoint(state.annotation.calB, "#f59e0b", "B");
+  for (const item of state.annotation.openings) {
+    drawAnnotationPoint(item.planPx, item.type === "door" ? "#ef4444" : "#38bdf8", item.id.slice(0, 8));
+  }
+}
+
+function drawAnnotationPoint(point, color, label) {
+  if (!point) return;
+  planCtx.fillStyle = color;
+  planCtx.beginPath();
+  planCtx.arc(point.x, point.y, 6, 0, Math.PI * 2);
+  planCtx.fill();
+  planCtx.fillStyle = "#ffffff";
+  planCtx.font = "12px sans-serif";
+  planCtx.fillText(label, point.x + 8, point.y - 8);
 }
 
 function onAddFurniture(event) {
