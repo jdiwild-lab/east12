@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
-const CEILING_HEIGHT = 9;
+const CEILING_HEIGHT = 9.5;
 const WALL_THICKNESS = 0.35;
 const POSITION_SNAP = 0.25;
 const ROTATION_STEP = Math.PI / 2;
@@ -15,6 +15,40 @@ const DIM = {
   kitchenWidth: 7,
   kitchenRise: 6,
   foyerDepth: 28,
+};
+
+const FEATURE_RAW = {
+  windows: [
+    { x: 0, z: 4, len: 2.4, axis: "z" },
+    { x: 0, z: 8.7, len: 2.2, axis: "z" },
+    { x: 0, z: 20.8, len: 2.2, axis: "z" },
+    { x: 12.5, z: 0, len: 2.4, axis: "x" },
+    { x: 22.5, z: 0, len: 2.4, axis: "x" },
+    { x: 30.5, z: 0, len: 2.2, axis: "x" },
+    { x: 34.75, z: -3.2, len: 2.2, axis: "z" },
+  ],
+  doors: [
+    { x: 15.9, z: 15.3, r: 1.35, startDeg: 180, endDeg: 270 },
+    { x: 9.6, z: 24, r: 1.2, startDeg: 0, endDeg: 90 },
+    { x: 30.3, z: 28, r: 1.2, startDeg: 180, endDeg: 270 },
+    { x: 31.75, z: 17.4, r: 1.05, startDeg: 180, endDeg: 270 },
+    { x: 31.75, z: 20.7, r: 1.05, startDeg: 180, endDeg: 270 },
+    { x: 31.75, z: 24.2, r: 1.05, startDeg: 180, endDeg: 270 },
+    { x: 14.9, z: 4.8, r: 1.1, startDeg: -90, endDeg: 0 },
+  ],
+  closets: [
+    { label: "CLOSET", x: 13.9, z: 5.5, w: 2.1, d: 5.4 },
+    { label: "CLOSET", x: 21.0, z: 24.0, w: 4.2, d: 1.8 },
+    { label: "CLOSET", x: 31.0, z: 17.4, w: 1.8, d: 1.6 },
+    { label: "CLOSET", x: 31.0, z: 20.7, w: 1.8, d: 2.2 },
+    { label: "CLOSET", x: 31.0, z: 24.2, w: 1.8, d: 2.2 },
+  ],
+  fixedLabels: [
+    { label: "W/D", x: 12.7, z: 20.0 },
+    { label: "DW", x: 39.6, z: 3.0 },
+    { label: "REF", x: 39.4, z: 5.4 },
+    { label: "WINE REF", x: 39.2, z: 8.2 },
+  ],
 };
 
 const DEFAULT_CATALOG_ITEMS = [
@@ -112,6 +146,7 @@ addRoomLabel("LIVING ROOM", rawToCentered(25, 9));
 addRoomLabel("KITCHEN", rawToCentered(39, 5));
 addRoomLabel("BATH", rawToCentered(5, 22));
 addRoomLabel("FOYER", rawToCentered(30, 22));
+addArchitecturalFeatures();
 
 const grid = new THREE.GridHelper(90, 90, 0xa8b1bc, 0xd5dce5);
 grid.position.y = 0.01;
@@ -251,6 +286,107 @@ function addRoomLabel(text, pos) {
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
   sprite.scale.set(6, 1.5, 1);
   sprite.position.set(pos.x, 4.8, pos.z);
+  apartmentGroup.add(sprite);
+}
+
+function addArchitecturalFeatures() {
+  addWindowMarkers();
+  addDoorSwings();
+  addClosetZones();
+  addFixedLabels();
+}
+
+function addWindowMarkers() {
+  for (const w of FEATURE_RAW.windows) {
+    const p = rawToCentered(w.x, w.z);
+    const geom = new THREE.PlaneGeometry(w.axis === "x" ? w.len : 0.16, w.axis === "z" ? w.len : 0.16);
+    const mat = new THREE.MeshStandardMaterial({
+      color: "#9adff5",
+      transparent: true,
+      opacity: 0.7,
+      emissive: "#7dd3fc",
+      emissiveIntensity: 0.22,
+      side: THREE.DoubleSide,
+    });
+    const pane = new THREE.Mesh(geom, mat);
+    pane.position.set(p.x, CEILING_HEIGHT * 0.6, p.z);
+    pane.rotation.x = -Math.PI / 2;
+    apartmentGroup.add(pane);
+  }
+}
+
+function addDoorSwings() {
+  for (const d of FEATURE_RAW.doors) {
+    const center = rawToCentered(d.x, d.z);
+    const points = [];
+    const start = (d.startDeg * Math.PI) / 180;
+    const end = (d.endDeg * Math.PI) / 180;
+    const steps = 24;
+    for (let i = 0; i <= steps; i += 1) {
+      const t = i / steps;
+      const a = start + (end - start) * t;
+      points.push(new THREE.Vector3(center.x + d.r * Math.cos(a), 0.06, center.z + d.r * Math.sin(a)));
+    }
+
+    const arc = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints(points),
+      new THREE.LineBasicMaterial({ color: 0x64748b })
+    );
+    apartmentGroup.add(arc);
+
+    const leaf = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(center.x, 0.06, center.z),
+        points[points.length - 1],
+      ]),
+      new THREE.LineBasicMaterial({ color: 0x94a3b8 })
+    );
+    apartmentGroup.add(leaf);
+  }
+}
+
+function addClosetZones() {
+  for (const c of FEATURE_RAW.closets) {
+    const p = rawToCentered(c.x, c.z);
+    const outline = new THREE.LineLoop(
+      new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(p.x - c.w / 2, 0.04, p.z - c.d / 2),
+        new THREE.Vector3(p.x + c.w / 2, 0.04, p.z - c.d / 2),
+        new THREE.Vector3(p.x + c.w / 2, 0.04, p.z + c.d / 2),
+        new THREE.Vector3(p.x - c.w / 2, 0.04, p.z + c.d / 2),
+      ]),
+      new THREE.LineBasicMaterial({ color: 0x1d4ed8 })
+    );
+    apartmentGroup.add(outline);
+    addSmallLabel(c.label, p.x, p.z, 0.7);
+  }
+}
+
+function addFixedLabels() {
+  for (const entry of FEATURE_RAW.fixedLabels) {
+    const p = rawToCentered(entry.x, entry.z);
+    addSmallLabel(entry.label, p.x, p.z, 0.65);
+  }
+}
+
+function addSmallLabel(text, x, z, scaleY = 0.7) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 320;
+  canvas.height = 96;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "rgba(255,255,255,0.72)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#0f172a";
+  ctx.font = "700 38px 'Source Sans 3'";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+
+  const sprite = new THREE.Sprite(
+    new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas), transparent: true, depthWrite: false })
+  );
+  sprite.scale.set(3.8, scaleY, 1);
+  sprite.position.set(x, 0.38, z);
   apartmentGroup.add(sprite);
 }
 
