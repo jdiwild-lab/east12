@@ -2,53 +2,23 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
 const CEILING_HEIGHT = 9.5;
-const WALL_THICKNESS = 0.35;
+const EXTERIOR_WALL_THICKNESS = 8 / 12;
+const INTERIOR_WALL_THICKNESS = 4.5 / 12;
 const POSITION_SNAP = 0.25;
 const ROTATION_STEP = Math.PI / 2;
 const COLLISION_GAP = 0.2;
 
-const DIM = {
-  bedroomWidth: 15 + 10 / 12,
-  bedroomDepth: 16,
-  livingWidth: 19 + 11 / 12,
-  livingDepth: 17 + 4 / 12,
-  kitchenWidth: 7,
-  kitchenRise: 6,
-  foyerDepth: 28,
+const ROOM = {
+  BEDROOM: { width: 15.83, depth: 16.0 },
+  LIVING: { width: 19.92, depth: 17.33 },
+  KITCHEN: { width: 8.0, depth: 14.0 },
+  BATH: { width: 8.0, depth: 6.0 },
 };
 
-const FEATURE_RAW = {
-  windows: [
-    { x: 0, z: 4, len: 2.4, axis: "z" },
-    { x: 0, z: 8.7, len: 2.2, axis: "z" },
-    { x: 0, z: 20.8, len: 2.2, axis: "z" },
-    { x: 12.5, z: 0, len: 2.4, axis: "x" },
-    { x: 22.5, z: 0, len: 2.4, axis: "x" },
-    { x: 30.5, z: 0, len: 2.2, axis: "x" },
-    { x: 34.75, z: -3.2, len: 2.2, axis: "z" },
-  ],
-  doors: [
-    { x: 15.9, z: 15.3, r: 1.35, startDeg: 180, endDeg: 270 },
-    { x: 9.6, z: 24, r: 1.2, startDeg: 0, endDeg: 90 },
-    { x: 30.3, z: 28, r: 1.2, startDeg: 180, endDeg: 270 },
-    { x: 31.75, z: 17.4, r: 1.05, startDeg: 180, endDeg: 270 },
-    { x: 31.75, z: 20.7, r: 1.05, startDeg: 180, endDeg: 270 },
-    { x: 31.75, z: 24.2, r: 1.05, startDeg: 180, endDeg: 270 },
-    { x: 14.9, z: 4.8, r: 1.1, startDeg: -90, endDeg: 0 },
-  ],
-  closets: [
-    { label: "CLOSET", x: 13.9, z: 5.5, w: 2.1, d: 5.4 },
-    { label: "CLOSET", x: 21.0, z: 24.0, w: 4.2, d: 1.8 },
-    { label: "CLOSET", x: 31.0, z: 17.4, w: 1.8, d: 1.6 },
-    { label: "CLOSET", x: 31.0, z: 20.7, w: 1.8, d: 2.2 },
-    { label: "CLOSET", x: 31.0, z: 24.2, w: 1.8, d: 2.2 },
-  ],
-  fixedLabels: [
-    { label: "W/D", x: 12.7, z: 20.0 },
-    { label: "DW", x: 39.6, z: 3.0 },
-    { label: "REF", x: 39.4, z: 5.4 },
-    { label: "WINE REF", x: 39.2, z: 8.2 },
-  ],
+const DOOR = {
+  ENTRY: 3.0,
+  INTERIOR: 2.5,
+  CLOSET: 2.0,
 };
 
 const DEFAULT_CATALOG_ITEMS = [
@@ -78,7 +48,7 @@ const DEFAULT_CATALOG_ITEMS = [
   },
   {
     id: "cat-bed-1",
-    name: "CB2 Queen Bed Frame",
+    name: "Queen Bed Frame",
     category: "Furniture",
     width: 5.2,
     depth: 6.8,
@@ -89,6 +59,8 @@ const DEFAULT_CATALOG_ITEMS = [
     link: "https://www.cb2.com/furniture/beds/1",
   },
 ];
+
+const RAW = buildRawGeometry();
 
 const state = {
   furniture: loadFurniture(),
@@ -109,8 +81,8 @@ renderer.setSize(viewer.clientWidth, viewer.clientHeight);
 renderer.shadowMap.enabled = true;
 viewer.appendChild(renderer.domElement);
 
-const camera = new THREE.PerspectiveCamera(55, viewer.clientWidth / viewer.clientHeight, 0.1, 1000);
-camera.position.set(22, 30, 28);
+const camera = new THREE.PerspectiveCamera(55, viewer.clientWidth / viewer.clientHeight, 0.1, 1500);
+camera.position.set(24, 34, 28);
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
@@ -127,8 +99,7 @@ const furnitureGroup = new THREE.Group();
 scene.add(apartmentGroup);
 scene.add(furnitureGroup);
 
-const floorPoints = buildFloorPoints();
-const floorShape = shapeFromPoints(floorPoints);
+const floorShape = shapeFromPoints(RAW.floor);
 const floorMesh = new THREE.Mesh(
   new THREE.ShapeGeometry(floorShape),
   new THREE.MeshStandardMaterial({ color: "#e8e0d2", roughness: 0.95 })
@@ -137,22 +108,18 @@ floorMesh.rotation.x = -Math.PI / 2;
 floorMesh.receiveShadow = true;
 apartmentGroup.add(floorMesh);
 
-addPerimeterWalls(floorPoints);
-const interiorWalls = buildInteriorWallSegments();
-addInteriorWalls(interiorWalls);
+addWallSegments(RAW.perimeterWalls, EXTERIOR_WALL_THICKNESS, "#f8fafc");
+addWallSegments(RAW.interiorWalls, INTERIOR_WALL_THICKNESS, "#e6edf6");
+addRoomLabels();
+addWindowMarkers();
+addDoorSwings();
+addDoorWidthLabels();
 
-addRoomLabel("BEDROOM", rawToCentered(7, 8));
-addRoomLabel("LIVING ROOM", rawToCentered(25, 9));
-addRoomLabel("KITCHEN", rawToCentered(39, 5));
-addRoomLabel("BATH", rawToCentered(5, 22));
-addRoomLabel("FOYER", rawToCentered(30, 22));
-addArchitecturalFeatures();
-
-const grid = new THREE.GridHelper(90, 90, 0xa8b1bc, 0xd5dce5);
+const grid = new THREE.GridHelper(100, 100, 0xa8b1bc, 0xd5dce5);
 grid.position.y = 0.01;
 scene.add(grid);
 
-const ext = getExtents(floorPoints);
+const ext = getExtents(RAW.floor);
 controls.target.set((ext.minX + ext.maxX) / 2, 0, (ext.minZ + ext.maxZ) / 2);
 
 const raycaster = new THREE.Raycaster();
@@ -160,13 +127,13 @@ const pointer = new THREE.Vector2();
 const drag = { active: false, item: null, offset: new THREE.Vector3() };
 const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 
-const wallColliders = interiorWalls.map((segment) => {
+const wallColliders = RAW.interiorWalls.map((segment) => {
   const length = Math.hypot(segment.b.x - segment.a.x, segment.b.z - segment.a.z);
   return {
     cx: (segment.a.x + segment.b.x) / 2,
     cz: (segment.a.z + segment.b.z) / 2,
     width: length,
-    depth: WALL_THICKNESS + COLLISION_GAP,
+    depth: INTERIOR_WALL_THICKNESS + COLLISION_GAP,
     angle: Math.atan2(segment.b.z - segment.a.z, segment.b.x - segment.a.x),
   };
 });
@@ -181,8 +148,6 @@ window.addEventListener("pointerup", onPointerUp);
 window.addEventListener("keydown", onKeyDown);
 window.addEventListener("resize", onResize);
 
-// Sidebar forms
-
 document.getElementById("furniture-form").addEventListener("submit", onAddFurniture);
 document.getElementById("link-form").addEventListener("submit", onAddFromLink);
 document.getElementById("tracker-form").addEventListener("submit", onAddTrackerItem);
@@ -191,193 +156,207 @@ document.getElementById("catalog-reset-btn").addEventListener("click", onCatalog
 
 animate();
 
-function buildFloorPoints() {
-  const raw = getRawFloorOutline();
-  const e = getExtents(raw);
-  const cx = (e.minX + e.maxX) / 2;
-  const cz = (e.minZ + e.maxZ) / 2;
-  return raw.map((p) => ({ x: p.x - cx, z: p.z - cz }));
-}
+function buildRawGeometry() {
+  const x0 = 0;
+  const x1 = ROOM.BEDROOM.width;
+  const x2 = x1 + ROOM.LIVING.width;
+  const x3 = x2 + ROOM.KITCHEN.width;
 
-function getRawFloorOutline() {
-  return [
-    { x: 0, z: 0 },
-    { x: DIM.bedroomWidth + DIM.livingWidth, z: 0 },
-    { x: DIM.bedroomWidth + DIM.livingWidth, z: -DIM.kitchenRise },
-    { x: DIM.bedroomWidth + DIM.livingWidth + DIM.kitchenWidth, z: -DIM.kitchenRise },
-    { x: DIM.bedroomWidth + DIM.livingWidth + DIM.kitchenWidth, z: DIM.livingDepth },
-    { x: DIM.bedroomWidth + DIM.livingWidth, z: DIM.livingDepth },
-    { x: DIM.bedroomWidth + DIM.livingWidth, z: DIM.foyerDepth },
-    { x: 26, z: DIM.foyerDepth },
-    { x: 26, z: 24 },
-    { x: 16, z: 24 },
-    { x: 16, z: DIM.foyerDepth },
-    { x: 0, z: DIM.foyerDepth },
+  const zTop = 0;
+  const zKitchenBottom = ROOM.KITCHEN.depth;
+  const zBedroomBottom = ROOM.BEDROOM.depth;
+  const zLivingBottom = ROOM.LIVING.depth;
+  const zBathBottom = zBedroomBottom + ROOM.BATH.depth;
+  const zFoyerBottom = 26;
+
+  const floorRaw = [
+    { x: x0, z: zTop },
+    { x: x3, z: zTop },
+    { x: x3, z: zKitchenBottom },
+    { x: x2, z: zKitchenBottom },
+    { x: x2, z: zFoyerBottom },
+    { x: 20, z: zFoyerBottom },
+    { x: 20, z: zBathBottom },
+    { x: x0, z: zBathBottom },
   ];
-}
 
-function buildInteriorWallSegments() {
-  const xSplit = DIM.bedroomWidth;
-  return [
-    { a: rawToCentered(xSplit, 0), b: rawToCentered(xSplit, DIM.bedroomDepth) },
-    { a: rawToCentered(18, 24), b: rawToCentered(26, 24) },
-    { a: rawToCentered(DIM.bedroomWidth + DIM.livingWidth, DIM.livingDepth), b: rawToCentered(DIM.bedroomWidth + DIM.livingWidth, DIM.foyerDepth) },
+  const interiorRaw = [
+    // Bedroom/Living divider.
+    { a: { x: x1, z: zTop }, b: { x: x1, z: zBedroomBottom } },
+    // Living/Foyer divider.
+    { a: { x: 20, z: zLivingBottom }, b: { x: 20, z: zFoyerBottom } },
+    // Bath/Foyer divider top.
+    { a: { x: 8, z: zBedroomBottom }, b: { x: 20, z: zBedroomBottom } },
+    // Kitchen/Living divider.
+    { a: { x: x2, z: zKitchenBottom }, b: { x: x2, z: zLivingBottom } },
   ];
+
+  const centeredFloor = centerPoints(floorRaw);
+  const center = getCenter(floorRaw);
+
+  const centeredInterior = interiorRaw.map((s) => ({
+    a: { x: s.a.x - center.x, z: s.a.z - center.z },
+    b: { x: s.b.x - center.x, z: s.b.z - center.z },
+  }));
+
+  const perimeter = [];
+  for (let i = 0; i < centeredFloor.length; i += 1) {
+    perimeter.push({ a: centeredFloor[i], b: centeredFloor[(i + 1) % centeredFloor.length] });
+  }
+
+  return {
+    center,
+    floor: centeredFloor,
+    perimeterWalls: perimeter,
+    interiorWalls: centeredInterior,
+    rooms: {
+      bedroom: toCenteredPoint(ROOM.BEDROOM.width * 0.5, ROOM.BEDROOM.depth * 0.52, center),
+      living: toCenteredPoint(x1 + ROOM.LIVING.width * 0.5, ROOM.LIVING.depth * 0.5, center),
+      kitchen: toCenteredPoint(x2 + ROOM.KITCHEN.width * 0.5, ROOM.KITCHEN.depth * 0.5, center),
+      bath: toCenteredPoint(ROOM.BATH.width * 0.5, zBedroomBottom + ROOM.BATH.depth * 0.5, center),
+      foyer: toCenteredPoint(x1 + ROOM.LIVING.width * 0.6, 22, center),
+    },
+    windows: [
+      // Bedroom left wall: 1 @ 3 ft
+      wallWindows({ x: x0, z1: 2.5, z2: 13.5, count: 1, length: 3, axis: "z", center }),
+      // Bedroom top wall: 2 @ 3.5 ft
+      wallWindows({ x1: 2, x2: x1 - 2, z: zTop, count: 2, length: 3.5, axis: "x", center }),
+      // Living top wall: 3 @ 3.5 ft
+      wallWindows({ x1: x1 + 1.5, x2: x2 - 1.5, z: zTop, count: 3, length: 3.5, axis: "x", center }),
+      // Kitchen top wall: 1 @ 3 ft
+      wallWindows({ x1: x2 + 1.2, x2: x3 - 1.2, z: zTop, count: 1, length: 3, axis: "x", center }),
+      // Bathroom left wall: 1 @ 2.5 ft
+      wallWindows({ x: x0, z1: zBedroomBottom + 1, z2: zBathBottom - 1, count: 1, length: 2.5, axis: "z", center }),
+    ].flat(),
+    doorSwings: [
+      // Entry door
+      swing(26, zFoyerBottom, DOOR.ENTRY / 2, 180, 270, center),
+      // Interior door bedroom->living
+      swing(x1, 14.4, DOOR.INTERIOR / 2, 180, 270, center),
+      // Interior bath door
+      swing(8, zBedroomBottom, DOOR.INTERIOR / 2, 0, 90, center),
+      // Closet doors (approximate)
+      swing(x1 - 0.2, 5.6, DOOR.CLOSET / 2, -90, 0, center),
+      swing(x2 + 0.1, 19.5, DOOR.CLOSET / 2, 180, 270, center),
+      swing(x2 + 0.1, 22.4, DOOR.CLOSET / 2, 180, 270, center),
+      swing(x2 + 0.1, 25.2, DOOR.CLOSET / 2, 180, 270, center),
+    ],
+  };
 }
 
-function rawToCentered(x, z) {
-  const pts = getRawFloorOutline();
-  const e = getExtents(pts);
-  const cx = (e.minX + e.maxX) / 2;
-  const cz = (e.minZ + e.maxZ) / 2;
-  return { x: x - cx, z: z - cz };
+function wallWindows({ x, x1, x2, z, z1, z2, count, length, axis, center }) {
+  const windows = [];
+  if (axis === "x") {
+    const span = x2 - x1;
+    const gap = span / (count + 1);
+    for (let i = 1; i <= count; i += 1) {
+      windows.push({ x: x1 + gap * i - center.x, z: z - center.z, len: length, axis: "x" });
+    }
+  } else {
+    const span = z2 - z1;
+    const gap = span / (count + 1);
+    for (let i = 1; i <= count; i += 1) {
+      windows.push({ x: x - center.x, z: z1 + gap * i - center.z, len: length, axis: "z" });
+    }
+  }
+  return windows;
 }
 
-function shapeFromPoints(points) {
-  const s = new THREE.Shape();
-  s.moveTo(points[0].x, points[0].z);
-  for (let i = 1; i < points.length; i += 1) s.lineTo(points[i].x, points[i].z);
-  s.lineTo(points[0].x, points[0].z);
-  return s;
+function swing(x, z, r, startDeg, endDeg, center) {
+  return { x: x - center.x, z: z - center.z, r, startDeg, endDeg };
 }
 
-function addPerimeterWalls(points) {
-  for (let i = 0; i < points.length; i += 1) {
-    const a = points[i];
-    const b = points[(i + 1) % points.length];
-    addWallSegment(a, b, "#f8fafc");
+function addWallSegments(segments, thickness, color) {
+  for (const segment of segments) {
+    const dx = segment.b.x - segment.a.x;
+    const dz = segment.b.z - segment.a.z;
+    const length = Math.hypot(dx, dz);
+    if (length < 0.05) continue;
+
+    const wall = new THREE.Mesh(
+      new THREE.BoxGeometry(length, CEILING_HEIGHT, thickness),
+      new THREE.MeshStandardMaterial({ color, roughness: 0.8 })
+    );
+    wall.castShadow = true;
+    wall.position.set((segment.a.x + segment.b.x) / 2, CEILING_HEIGHT / 2, (segment.a.z + segment.b.z) / 2);
+    wall.rotation.y = -Math.atan2(dz, dx);
+    apartmentGroup.add(wall);
   }
 }
 
-function addInteriorWalls(segments) {
-  for (const seg of segments) addWallSegment(seg.a, seg.b, "#e6edf6");
-}
-
-function addWallSegment(a, b, color) {
-  const dx = b.x - a.x;
-  const dz = b.z - a.z;
-  const length = Math.hypot(dx, dz);
-  if (length < 0.05) return;
-
-  const wall = new THREE.Mesh(
-    new THREE.BoxGeometry(length, CEILING_HEIGHT, WALL_THICKNESS),
-    new THREE.MeshStandardMaterial({ color, roughness: 0.8 })
-  );
-  wall.castShadow = true;
-  wall.position.set((a.x + b.x) / 2, CEILING_HEIGHT / 2, (a.z + b.z) / 2);
-  wall.rotation.y = -Math.atan2(dz, dx);
-  apartmentGroup.add(wall);
-}
-
-function addRoomLabel(text, pos) {
-  const canvas = document.createElement("canvas");
-  canvas.width = 512;
-  canvas.height = 128;
-  const ctx = canvas.getContext("2d");
-  ctx.fillStyle = "rgba(255,255,255,0.72)";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = "#1f2937";
-  ctx.font = "700 52px 'Source Sans 3'";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(text, 256, 64);
-
-  const tex = new THREE.CanvasTexture(canvas);
-  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
-  sprite.scale.set(6, 1.5, 1);
-  sprite.position.set(pos.x, 4.8, pos.z);
-  apartmentGroup.add(sprite);
-}
-
-function addArchitecturalFeatures() {
-  addWindowMarkers();
-  addDoorSwings();
-  addClosetZones();
-  addFixedLabels();
+function addRoomLabels() {
+  addLabel("BEDROOM", RAW.rooms.bedroom, 6.4, 1.5, 4.8);
+  addLabel("LIVING ROOM", RAW.rooms.living, 7.5, 1.5, 4.8);
+  addLabel("KITCHEN", RAW.rooms.kitchen, 5.2, 1.4, 4.8);
+  addLabel("BATH", RAW.rooms.bath, 3.8, 1.2, 4.8);
+  addLabel("FOYER", RAW.rooms.foyer, 3.8, 1.2, 4.8);
 }
 
 function addWindowMarkers() {
-  for (const w of FEATURE_RAW.windows) {
-    const p = rawToCentered(w.x, w.z);
-    const geom = new THREE.PlaneGeometry(w.axis === "x" ? w.len : 0.16, w.axis === "z" ? w.len : 0.16);
-    const mat = new THREE.MeshStandardMaterial({
-      color: "#9adff5",
-      transparent: true,
-      opacity: 0.7,
-      emissive: "#7dd3fc",
-      emissiveIntensity: 0.22,
-      side: THREE.DoubleSide,
-    });
-    const pane = new THREE.Mesh(geom, mat);
-    pane.position.set(p.x, CEILING_HEIGHT * 0.6, p.z);
+  for (const w of RAW.windows) {
+    const geom = new THREE.PlaneGeometry(w.axis === "x" ? w.len : 0.18, w.axis === "z" ? w.len : 0.18);
+    const pane = new THREE.Mesh(
+      geom,
+      new THREE.MeshStandardMaterial({
+        color: "#8ee1f5",
+        transparent: true,
+        opacity: 0.72,
+        emissive: "#7dd3fc",
+        emissiveIntensity: 0.25,
+        side: THREE.DoubleSide,
+      })
+    );
+    pane.position.set(w.x, CEILING_HEIGHT * 0.62, w.z);
     pane.rotation.x = -Math.PI / 2;
     apartmentGroup.add(pane);
   }
 }
 
 function addDoorSwings() {
-  for (const d of FEATURE_RAW.doors) {
-    const center = rawToCentered(d.x, d.z);
-    const points = [];
+  for (const d of RAW.doorSwings) {
     const start = (d.startDeg * Math.PI) / 180;
     const end = (d.endDeg * Math.PI) / 180;
-    const steps = 24;
-    for (let i = 0; i <= steps; i += 1) {
-      const t = i / steps;
+    const points = [];
+    for (let i = 0; i <= 22; i += 1) {
+      const t = i / 22;
       const a = start + (end - start) * t;
-      points.push(new THREE.Vector3(center.x + d.r * Math.cos(a), 0.06, center.z + d.r * Math.sin(a)));
+      points.push(new THREE.Vector3(d.x + d.r * Math.cos(a), 0.06, d.z + d.r * Math.sin(a)));
     }
 
-    const arc = new THREE.Line(
-      new THREE.BufferGeometry().setFromPoints(points),
-      new THREE.LineBasicMaterial({ color: 0x64748b })
+    apartmentGroup.add(
+      new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints(points),
+        new THREE.LineBasicMaterial({ color: 0x64748b })
+      )
     );
-    apartmentGroup.add(arc);
 
-    const leaf = new THREE.Line(
-      new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(center.x, 0.06, center.z),
-        points[points.length - 1],
-      ]),
-      new THREE.LineBasicMaterial({ color: 0x94a3b8 })
+    apartmentGroup.add(
+      new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(d.x, 0.06, d.z),
+          points[points.length - 1],
+        ]),
+        new THREE.LineBasicMaterial({ color: 0x94a3b8 })
+      )
     );
-    apartmentGroup.add(leaf);
   }
 }
 
-function addClosetZones() {
-  for (const c of FEATURE_RAW.closets) {
-    const p = rawToCentered(c.x, c.z);
-    const outline = new THREE.LineLoop(
-      new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(p.x - c.w / 2, 0.04, p.z - c.d / 2),
-        new THREE.Vector3(p.x + c.w / 2, 0.04, p.z - c.d / 2),
-        new THREE.Vector3(p.x + c.w / 2, 0.04, p.z + c.d / 2),
-        new THREE.Vector3(p.x - c.w / 2, 0.04, p.z + c.d / 2),
-      ]),
-      new THREE.LineBasicMaterial({ color: 0x1d4ed8 })
-    );
-    apartmentGroup.add(outline);
-    addSmallLabel(c.label, p.x, p.z, 0.7);
-  }
+function addDoorWidthLabels() {
+  addLabel(`ENTRY ${DOOR.ENTRY.toFixed(1)}'`, rawToCentered(26, 25.2), 2.8, 0.7, 0.55);
+  addLabel(`INT ${DOOR.INTERIOR.toFixed(1)}'`, rawToCentered(15.6, 14.1), 2.7, 0.7, 0.55);
+  addLabel(`CLOSET ${DOOR.CLOSET.toFixed(1)}'`, rawToCentered(31.7, 22.8), 3.6, 0.7, 0.55);
 }
 
-function addFixedLabels() {
-  for (const entry of FEATURE_RAW.fixedLabels) {
-    const p = rawToCentered(entry.x, entry.z);
-    addSmallLabel(entry.label, p.x, p.z, 0.65);
-  }
-}
-
-function addSmallLabel(text, x, z, scaleY = 0.7) {
+function addLabel(text, pos, sx, sy, y = 0.4) {
   const canvas = document.createElement("canvas");
-  canvas.width = 320;
-  canvas.height = 96;
+  canvas.width = 512;
+  canvas.height = 128;
   const ctx = canvas.getContext("2d");
   ctx.fillStyle = "rgba(255,255,255,0.72)";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = "#0f172a";
-  ctx.font = "700 38px 'Source Sans 3'";
+  ctx.font = "700 48px 'Source Sans 3'";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(text, canvas.width / 2, canvas.height / 2);
@@ -385,8 +364,8 @@ function addSmallLabel(text, x, z, scaleY = 0.7) {
   const sprite = new THREE.Sprite(
     new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas), transparent: true, depthWrite: false })
   );
-  sprite.scale.set(3.8, scaleY, 1);
-  sprite.position.set(x, 0.38, z);
+  sprite.scale.set(sx, sy, 1);
+  sprite.position.set(pos.x, y, pos.z);
   apartmentGroup.add(sprite);
 }
 
@@ -593,7 +572,7 @@ function isValidPlacement(candidate, ignoreId) {
   const poly = getItemPolygon(candidate, COLLISION_GAP / 2);
 
   for (const c of poly) {
-    if (!pointInPolygon(c, floorPoints)) return false;
+    if (!pointInPolygon(c, RAW.floor)) return false;
   }
 
   for (const wall of wallColliders) {
@@ -670,7 +649,9 @@ function pointInPolygon(point, polygon) {
     const zi = polygon[i].z;
     const xj = polygon[j].x;
     const zj = polygon[j].z;
-    const cross = zi > point.z !== zj > point.z && point.x < ((xj - xi) * (point.z - zi)) / (zj - zi + Number.EPSILON) + xi;
+    const cross =
+      zi > point.z !== zj > point.z &&
+      point.x < ((xj - xi) * (point.z - zi)) / (zj - zi + Number.EPSILON) + xi;
     if (cross) inside = !inside;
   }
   return inside;
@@ -913,8 +894,12 @@ function normalizeCatalogItem(row) {
     height,
     color: validHex(colorRaw) ? colorRaw : "#7b5a3a",
     price: Math.max(0, Number(row.price) || 0),
-    link: String(row.link ?? "https://www.google.com/search?q=furniture").trim() || "https://www.google.com/search?q=furniture",
-    image: String(row.image ?? "").trim() || "https://images.unsplash.com/photo-1484101403633-562f891dc89a?auto=format&fit=crop&w=480&q=80",
+    link:
+      String(row.link ?? "https://www.google.com/search?q=furniture").trim() ||
+      "https://www.google.com/search?q=furniture",
+    image:
+      String(row.image ?? "").trim() ||
+      "https://images.unsplash.com/photo-1484101403633-562f891dc89a?auto=format&fit=crop&w=480&q=80",
   };
 }
 
@@ -956,6 +941,32 @@ function animate() {
   requestAnimationFrame(animate);
   controls.update();
   renderer.render(scene, camera);
+}
+
+function shapeFromPoints(points) {
+  const s = new THREE.Shape();
+  s.moveTo(points[0].x, points[0].z);
+  for (let i = 1; i < points.length; i += 1) s.lineTo(points[i].x, points[i].z);
+  s.lineTo(points[0].x, points[0].z);
+  return s;
+}
+
+function toCenteredPoint(x, z, center) {
+  return { x: x - center.x, z: z - center.z };
+}
+
+function centerPoints(points) {
+  const center = getCenter(points);
+  return points.map((p) => ({ x: p.x - center.x, z: p.z - center.z }));
+}
+
+function getCenter(points) {
+  const ext = getExtents(points);
+  return { x: (ext.minX + ext.maxX) / 2, z: (ext.minZ + ext.maxZ) / 2 };
+}
+
+function rawToCentered(x, z) {
+  return { x: x - RAW.center.x, z: z - RAW.center.z };
 }
 
 function loadFurniture() {
