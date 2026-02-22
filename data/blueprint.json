@@ -1,0 +1,305 @@
+{
+  "meta": {
+    "name": "12E87_Apt8C_traced",
+    "source": "traced-svg",
+    "notes": "Centerline topology + explicit opening markers"
+  },
+  "ceilingHeightIn": 114,
+  "wallThickness": {
+    "exteriorIn": 8,
+    "interiorIn": 4.5
+  },
+  "defaults": {
+    "door": {
+      "heightIn": 80,
+      "entryWidthIn": 36,
+      "interiorWidthIn": 30,
+      "closetWidthIn": 24
+    },
+    "window": {
+      "widthIn": 48,
+      "heightIn": 60,
+      "sillHeightIn": 24
+    }
+  },
+  "calibration": {
+    "a": { "x": 189.96, "z": 0.0 },
+    "b": { "x": 428.96, "z": 0.0 },
+    "knownInches": 239
+  },
+  "floorOutline": [
+    { "x": 0.0, "z": 0.0 },
+    { "x": 525.0, "z": 0.0 },
+    { "x": 525.0, "z": 168.0 },
+    { "x": 429.0, "z": 168.0 },
+    { "x": 429.0, "z": 312.0 },
+    { "x": 240.0, "z": 312.0 },
+    { "x": 240.0, "z": 264.0 },
+    { "x": 0.0, "z": 264.0 }
+  ],
+  "walls": [
+    {
+      "id": "BEDROOM_NORTH",
+      "kind": "exterior",
+      "polyline": [
+        { "x": 0.0, "z": 0.0 },
+        { "x": 189.96, "z": 0.0 }
+      ]
+    },
+    {
+      "id": "LIVING_NORTH",
+      "kind": "exterior",
+      "polyline": [
+        { "x": 189.96, "z": 0.0 },
+        { "x": 429.0, "z": 0.0 }
+      ]
+    },
+    {
+      "id": "KITCHEN_NORTH",
+      "kind": "exterior",
+      "polyline": [
+        { "x": 429.0, "z": 0.0 },
+        { "x": 525.0, "z": 0.0 }
+      ]
+    },
+    {
+      "id": "KITCHEN_EAST",
+      "kind": "exterior",
+      "polyline": [
+        { "x": 525.0, "z": 0.0 },
+        { "x": 525.0, "z": 168.0 }
+      ]
+    },
+    {
+      "id": "KITCHEN_SOUTH",
+      "kind": "exterior",
+      "polyline": [
+        { "x": 525.0, "z": 168.0 },
+        { "x": 429.0, "z": 168.0 }
+      ]
+    },
+    {
+      "id": "FOYER_EAST",
+      "kind": "exterior",
+      "polyline": [
+        { "x": 429.0, "z": 168.0 },
+        { "x": 429.0, "z": 312.0 }
+      ]
+    },
+    {
+      "id": "FOYER_SOUTH",
+      "kind": "exterior",
+      "polyline": [
+        { "x": 429.0, "z": 312.0 },
+        { "x": 240.0, "z": 312.0 }
+      ]
+    },
+    {
+      "id": "BATH_SOUTH",
+      "kind": "exterior",
+      "polyline": [
+        { "x": 240.0, "z": 264.0 },
+        { "x": 0.0, "z": 264.0 }
+      ]
+    },
+    {
+      "id": "BATH_WEST",
+      "kind": "exterior",
+      "polyline": [
+        { "x": 0.0, "z": 264.0 },
+        { "x": 0.0, "z": 192.0 }
+      ]
+    },
+    {
+      "id": "BEDROOM_WEST",
+      "kind": "exterior",
+      "polyline": [
+        { "x": 0.0, "z": 192.0 },
+        { "x": 0.0, "z": 0.0 }
+      ]
+    },
+    {
+      "id": "BED_LIVING",
+      "kind": "interior",
+      "polyline": [
+        { "x": 189.96, "z": 0.0 },
+        { "x": 189.96, "z": 192.0 }
+      ]
+    },
+    {
+      "id": "LIVING_FOYER",
+      "kind": "interior",
+      "polyline": [
+        { "x": 240.0, "z": 207.96 },
+        { "x": 240.0, "z": 312.0 }
+      ]
+    },
+    {
+      "id": "BATH_FOYER",
+      "kind": "interior",
+      "polyline": [
+        { "x": 96.0, "z": 192.0 },
+        { "x": 240.0, "z": 192.0 }
+      ]
+    },
+    {
+      "id": "KITCHEN_LIVING",
+      "kind": "interior",
+      "polyline": [
+        { "x": 429.0, "z": 168.0 },
+        { "x": 429.0, "z": 207.96 }
+      ]
+    }
+  ],
+  "openings": [
+    {
+      "id": "entry",
+      "type": "door",
+      "category": "entry",
+      "wallId": "FOYER_SOUTH",
+      "widthIn": 36,
+      "heightIn": 80,
+      "offsetUnits": 81,
+      "hinge": "left",
+      "swing": "in"
+    },
+    {
+      "id": "bedroom_entry",
+      "type": "door",
+      "category": "interior",
+      "wallId": "BED_LIVING",
+      "widthIn": 30,
+      "heightIn": 80,
+      "offsetUnits": 138,
+      "hinge": "right",
+      "swing": "in"
+    },
+    {
+      "id": "bath_entry",
+      "type": "door",
+      "category": "interior",
+      "wallId": "BATH_SOUTH",
+      "widthIn": 30,
+      "heightIn": 80,
+      "offsetUnits": 176,
+      "hinge": "left",
+      "swing": "in"
+    },
+    {
+      "id": "bedroom_closet_double",
+      "type": "door",
+      "category": "closet",
+      "wallId": "BED_LIVING",
+      "widthIn": 48,
+      "heightIn": 80,
+      "offsetUnits": 62,
+      "hinge": "left",
+      "swing": "in"
+    },
+    {
+      "id": "foyer_closet_1",
+      "type": "door",
+      "category": "closet",
+      "wallId": "FOYER_EAST",
+      "widthIn": 24,
+      "heightIn": 80,
+      "offsetUnits": 55,
+      "hinge": "left",
+      "swing": "in"
+    },
+    {
+      "id": "foyer_closet_2",
+      "type": "door",
+      "category": "closet",
+      "wallId": "FOYER_EAST",
+      "widthIn": 24,
+      "heightIn": 80,
+      "offsetUnits": 121,
+      "hinge": "left",
+      "swing": "in"
+    },
+    {
+      "id": "foyer_closet_3",
+      "type": "door",
+      "category": "closet",
+      "wallId": "FOYER_SOUTH",
+      "widthIn": 24,
+      "heightIn": 80,
+      "offsetUnits": 21,
+      "hinge": "left",
+      "swing": "in"
+    },
+    {
+      "id": "bedroom_west_1",
+      "type": "window",
+      "wallId": "BEDROOM_WEST",
+      "widthIn": 48,
+      "heightIn": 60,
+      "sillHeightIn": 24,
+      "centerOffsetUnits": 70
+    },
+    {
+      "id": "bedroom_north_1",
+      "type": "window",
+      "wallId": "BEDROOM_NORTH",
+      "widthIn": 48,
+      "heightIn": 60,
+      "sillHeightIn": 24,
+      "centerOffsetUnits": 108
+    },
+    {
+      "id": "bedroom_north_2",
+      "type": "window",
+      "wallId": "BEDROOM_NORTH",
+      "widthIn": 48,
+      "heightIn": 60,
+      "sillHeightIn": 24,
+      "centerOffsetUnits": 167
+    },
+    {
+      "id": "living_north_1",
+      "type": "window",
+      "wallId": "LIVING_NORTH",
+      "widthIn": 48,
+      "heightIn": 60,
+      "sillHeightIn": 24,
+      "centerOffsetUnits": 73
+    },
+    {
+      "id": "living_north_2",
+      "type": "window",
+      "wallId": "LIVING_NORTH",
+      "widthIn": 48,
+      "heightIn": 60,
+      "sillHeightIn": 24,
+      "centerOffsetUnits": 143
+    },
+    {
+      "id": "living_north_3",
+      "type": "window",
+      "wallId": "LIVING_NORTH",
+      "widthIn": 48,
+      "heightIn": 60,
+      "sillHeightIn": 24,
+      "centerOffsetUnits": 211
+    },
+    {
+      "id": "kitchen_north_1",
+      "type": "window",
+      "wallId": "KITCHEN_NORTH",
+      "widthIn": 48,
+      "heightIn": 60,
+      "sillHeightIn": 24,
+      "centerOffsetUnits": 33
+    },
+    {
+      "id": "bath_west_1",
+      "type": "window",
+      "wallId": "BATH_SOUTH",
+      "widthIn": 48,
+      "heightIn": 60,
+      "sillHeightIn": 24,
+      "centerOffsetUnits": 240
+    }
+  ]
+}

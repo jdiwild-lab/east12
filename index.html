@@ -31,90 +31,11 @@
             <div><strong>Doors:</strong> 80" tall; Entry 36", Interior 30", Closet 24"/48"</div>
             <div><strong>Windows:</strong> Double-hung 48"w x 60"h, 24" sill (openings cut into walls)</div>
           </div>
-          <p class="hint">Walls are generated from an explicit <code>openings[]</code> list with real door/window voids.</p>
-        </section>
-
-        <section class="card">
-          <h2>Plan Annotation Mode</h2>
-          <div class="dimensions">
-            <div><strong>Step 1:</strong> Toggle overlay, click Cal A and Cal B on plan.</div>
-            <div><strong>Step 2:</strong> Enter known dimension in inches and apply calibration.</div>
-            <div><strong>Step 3:</strong> Add openings by clicking door/window centers.</div>
-          </div>
           <div class="row-2">
-            <button id="annotator-toggle-btn" type="button" class="ghost">Show Overlay</button>
-            <button id="annotator-clear-btn" type="button" class="ghost">Clear Openings</button>
+            <button id="debug-toggle-btn" type="button" class="ghost">Toggle Debug IDs</button>
+            <div></div>
           </div>
-          <div class="row-2">
-            <button id="set-cal-a-btn" type="button">Pick Cal A</button>
-            <button id="set-cal-b-btn" type="button">Pick Cal B</button>
-          </div>
-          <label>
-            Known Dimension (inches)
-            <input id="known-distance-in" type="number" min="1" value="239" />
-          </label>
-          <label>
-            Calibration Axis
-            <select id="cal-axis">
-              <option value="x" selected>World X</option>
-              <option value="z">World Z</option>
-            </select>
-          </label>
-          <div class="row-2">
-            <label>
-              Origin World X (in)
-              <input id="origin-world-x-in" type="number" value="0" />
-            </label>
-            <label>
-              Origin World Z (in)
-              <input id="origin-world-z-in" type="number" value="0" />
-            </label>
-          </div>
-          <button id="apply-calibration-btn" type="button">Apply Calibration</button>
-          <hr />
-          <label>
-            Opening Type
-            <select id="opening-type">
-              <option value="door">Door</option>
-              <option value="window">Window</option>
-            </select>
-          </label>
-          <label>
-            Opening ID
-            <input id="opening-id" placeholder="e.g., foyer_closet_1" />
-          </label>
-          <div class="row-2">
-            <label>
-              Width (in)
-              <input id="opening-width-in" type="number" min="1" value="36" />
-            </label>
-            <label>
-              Height (in)
-              <input id="opening-height-in" type="number" min="1" value="80" />
-            </label>
-          </div>
-          <div class="row-2">
-            <label>
-              Sill (window, in)
-              <input id="opening-sill-in" type="number" min="0" value="24" />
-            </label>
-            <label>
-              Hinge (door)
-              <select id="opening-hinge">
-                <option value="left" selected>Left</option>
-                <option value="right">Right</option>
-              </select>
-            </label>
-          </div>
-          <label>
-            Swing (door)
-            <select id="opening-swing">
-              <option value="in" selected>In</option>
-              <option value="out">Out</option>
-            </select>
-          </label>
-          <button id="add-opening-click-btn" type="button">Click Plan to Add Opening</button>
-          <div id="annotation-list" class="tracker-list"></div>
+          <p class="hint">Geometry now loads from <code>/data/blueprint.json</code> traced centerlines + explicit openings.</p>
         </section>
 
         <section class="card">
@@ -200,9 +121,6 @@
 
       <main class="viewer-wrap">
         <div id="viewer"></div>
-        <div id="plan-overlay" class="plan-overlay hidden">
-          <canvas id="plan-canvas" width="1200" height="849"></canvas>
-        </div>
       </main>
     </div>
 
