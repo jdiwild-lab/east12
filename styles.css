@@ -1,11 +1,11 @@
 :root {
-  --bg: #eef3f1;
-  --ink: #101615;
-  --muted: #4d5a58;
-  --line: #d4ddda;
-  --card: #ffffff;
-  --accent: #0f766e;
-  --accent-2: #164e63;
+  --bg: #dfe4ea;
+  --ink: #101722;
+  --muted: #445266;
+  --line: #cad2dd;
+  --card: #f9fbfd;
+  --accent: #1f3f60;
+  --accent-2: #0f2238;
   --danger: #b91c1c;
 }
 
@@ -24,8 +24,9 @@ body {
   position: fixed;
   inset: 0;
   background:
-    radial-gradient(circle at 90% -10%, #c7ece7 0%, transparent 35%),
-    radial-gradient(circle at -15% 110%, #bfd7e8 0%, transparent 35%);
+    radial-gradient(circle at 90% -10%, #b7c8db 0%, transparent 40%),
+    radial-gradient(circle at -15% 110%, #c9c0ad 0%, transparent 35%),
+    linear-gradient(180deg, #dde3ea, #d8dde5);
   z-index: -1;
 }
 
@@ -40,7 +41,7 @@ body {
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: 16px;
-  box-shadow: 0 10px 30px rgba(10, 20, 20, 0.05);
+  box-shadow: 0 10px 24px rgba(15, 26, 38, 0.08);
 }
 
 .topbar {
@@ -55,7 +56,7 @@ body {
   font-size: 0.78rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--accent-2);
+  color: #20354f;
   font-weight: 700;
 }
 
@@ -181,9 +182,9 @@ button.primary {
 
 button.ghost,
 .import-btn {
-  background: #ecf2f1;
-  color: #17302d;
-  border: 1px solid #d4dfdd;
+  background: #e7edf4;
+  color: #16283d;
+  border: 1px solid #ced8e3;
 }
 
 .import-btn {
@@ -233,8 +234,8 @@ button.ghost,
 }
 
 .chip.active {
-  background: #d2f2ee;
-  border-color: #95dbd4;
+  background: #dbe6f2;
+  border-color: #a8bfd8;
 }
 
 .catalog-list {
@@ -334,6 +335,14 @@ button.ghost,
     flex-direction: column;
     align-items: flex-start;
   }
+
+  .budget-wrap {
+    width: 100%;
+  }
+
+  .budget-wrap > * {
+    flex: 1 1 160px;
+  }
 }
 
 @media (max-width: 660px) {
@@ -346,5 +355,52 @@ button.ghost,
   .item-card img {
     width: 100%;
     height: 160px;
+  }
+
+  .app-shell {
+    width: min(1200px, 96vw);
+    margin: 0.8rem auto 1.1rem;
+    gap: 0.7rem;
+  }
+
+  .card {
+    border-radius: 13px;
+  }
+
+  .topbar,
+  .form-card,
+  .list-card,
+  .stat {
+    padding: 0.75rem;
+  }
+
+  .stat h2 {
+    font-size: 1.25rem;
+  }
+
+  h1 {
+    font-size: 1.5rem;
+  }
+
+  .actions {
+    min-width: 0;
+  }
+
+  .actions button,
+  .actions a,
+  .import-btn,
+  button {
+    width: 100%;
+    text-align: center;
+  }
+}
+
+@media (max-width: 420px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .row-2.compact {
+    grid-template-columns: 1fr;
   }
 }
