@@ -31,20 +31,19 @@
             Budget ($)
             <input id="budget-input" type="number" min="0" step="1" value="10000" />
           </label>
-          <button id="sync-link-btn" class="ghost" type="button">Copy Sync Link</button>
         </div>
       </header>
 
       <section class="card sync-card">
         <div class="sync-row">
           <label>
-            Live Sync Room
-            <input id="sync-room-input" placeholder="e.g., matt-apt-setup" />
+            Shared Room Name
+            <input id="sync-room-input" placeholder="same value for both of you (e.g., matt-apt-setup)" />
           </label>
           <button id="sync-connect-btn" type="button">Connect Firebase</button>
           <button id="sync-disconnect-btn" class="ghost" type="button">Disconnect</button>
         </div>
-        <p id="sync-state" class="hint">Live sync is off.</p>
+        <p id="sync-state" class="hint">Enter the same room name on both browsers, then click Connect Firebase.</p>
       </section>
 
       <section class="stats-grid">

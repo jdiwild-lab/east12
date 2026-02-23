@@ -43,7 +43,6 @@ const els = {
   syncDisconnectBtn: document.getElementById("sync-disconnect-btn"),
   syncState: document.getElementById("sync-state"),
   themeSelect: document.getElementById("theme-select"),
-  syncLinkBtn: document.getElementById("sync-link-btn"),
   categoryChips: document.getElementById("category-chips"),
   searchInput: document.getElementById("search-input"),
   sortSelect: document.getElementById("sort-select"),
@@ -60,7 +59,6 @@ boot();
 
 function boot() {
   loadTheme();
-  loadFromSyncHash();
   loadSyncPrefs();
   loadState();
   wireEvents();
@@ -88,7 +86,6 @@ function wireEvents() {
   els.themeSelect.addEventListener("change", () => {
     applyTheme(els.themeSelect.value);
   });
-  els.syncLinkBtn.addEventListener("click", onCopySyncLink);
   els.syncConnectBtn.addEventListener("click", onConnectSync);
   els.syncDisconnectBtn.addEventListener("click", onDisconnectSync);
 }
@@ -450,50 +447,6 @@ function loadState() {
   }
 }
 
-function loadFromSyncHash() {
-  try {
-    const packed = readSyncTokenFromLocation();
-    if (!packed) return;
-
-    const json = decodeBase64Utf8(packed);
-    const parsed = JSON.parse(json);
-    const incoming = Array.isArray(parsed) ? parsed : parsed.items;
-    if (!Array.isArray(incoming)) return;
-
-    state.items = incoming.map(normalizeItem).filter(Boolean);
-    if (Number(parsed.budget) >= 0) state.budget = Number(parsed.budget);
-    if (parsed.theme) applyTheme(String(parsed.theme), true);
-    saveState();
-    setStatus(`Loaded ${state.items.length} items from sync link.`);
-    window.history.replaceState(null, "", window.location.pathname);
-  } catch {
-    setStatus("Sync link could not be read.");
-  }
-}
-
-async function onCopySyncLink() {
-  try {
-    const payload = {
-      budget: state.budget,
-      theme: document.documentElement.getAttribute("data-theme") || "slate",
-      items: state.items,
-    };
-    const packed = encodeBase64Utf8(JSON.stringify(payload));
-    const url = `${window.location.origin}${window.location.pathname}#sync=${packed}`;
-
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(url);
-      setStatus("Sync link copied. Open this exact link in another browser.");
-      return;
-    }
-
-    window.prompt("Copy this sync link:", url);
-    setStatus("Sync link created. Copy it from the prompt.");
-  } catch {
-    setStatus("Could not create sync link.");
-  }
-}
-
 function loadTheme() {
   const stored = localStorage.getItem(THEME_KEY) || "slate";
   applyTheme(stored, false);
@@ -566,52 +519,6 @@ function escapeHtml(str) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
-}
-
-function encodeBase64Utf8(text) {
-  const bytes = new TextEncoder().encode(text);
-  let binary = "";
-  for (const b of bytes) binary += String.fromCharCode(b);
-  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
-}
-
-function decodeBase64Utf8(base64) {
-  const normalized = base64.trim().replaceAll(" ", "+").replaceAll("-", "+").replaceAll("_", "/");
-  const padded = normalized + "=".repeat((4 - (normalized.length % 4 || 4)) % 4);
-  const binary = atob(padded);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
-  return new TextDecoder().decode(bytes);
-}
-
-function readSyncTokenFromLocation() {
-  const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : "";
-  const query = window.location.search.startsWith("?") ? window.location.search.slice(1) : "";
-
-  const fromHash = extractSyncToken(hash);
-  if (fromHash) return fromHash;
-
-  const fromQuery = extractSyncToken(query);
-  if (fromQuery) return fromQuery;
-
-  return null;
-}
-
-function extractSyncToken(fragment) {
-  if (!fragment) return null;
-  const parts = fragment.split("&");
-  for (const part of parts) {
-    const [key, ...rest] = part.split("=");
-    if (key === "sync" && rest.length) {
-      const raw = rest.join("=");
-      try {
-        return decodeURIComponent(raw);
-      } catch {
-        return raw;
-      }
-    }
-  }
-  return null;
 }
 
 let firebaseApp = null;
