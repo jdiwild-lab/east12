@@ -431,10 +431,7 @@ function loadState() {
 
 function loadFromSyncHash() {
   try {
-    const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : "";
-    if (!hash) return;
-    const params = new URLSearchParams(hash);
-    const packed = params.get("sync");
+    const packed = readSyncTokenFromLocation();
     if (!packed) return;
 
     const json = decodeBase64Utf8(packed);
@@ -447,6 +444,7 @@ function loadFromSyncHash() {
     if (parsed.theme) applyTheme(String(parsed.theme), true);
     saveState();
     setStatus(`Loaded ${state.items.length} items from sync link.`);
+    window.history.replaceState(null, "", window.location.pathname);
   } catch {
     setStatus("Sync link could not be read.");
   }
@@ -460,16 +458,16 @@ async function onCopySyncLink() {
       items: state.items,
     };
     const packed = encodeBase64Utf8(JSON.stringify(payload));
-    const url = `${window.location.origin}${window.location.pathname}#sync=${encodeURIComponent(packed)}`;
+    const url = `${window.location.origin}${window.location.pathname}#sync=${packed}`;
 
     if (navigator.clipboard?.writeText) {
       await navigator.clipboard.writeText(url);
-      setStatus("Sync link copied. Open that exact link in another browser.");
+      setStatus("Sync link copied. Open this exact link in another browser.");
       return;
     }
 
     window.prompt("Copy this sync link:", url);
-    setStatus("Sync link created.");
+    setStatus("Sync link created. Copy it from the prompt.");
   } catch {
     setStatus("Could not create sync link.");
   }
@@ -534,12 +532,44 @@ function encodeBase64Utf8(text) {
   const bytes = new TextEncoder().encode(text);
   let binary = "";
   for (const b of bytes) binary += String.fromCharCode(b);
-  return btoa(binary);
+  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
 }
 
 function decodeBase64Utf8(base64) {
-  const binary = atob(base64);
+  const normalized = base64.trim().replaceAll(" ", "+").replaceAll("-", "+").replaceAll("_", "/");
+  const padded = normalized + "=".repeat((4 - (normalized.length % 4 || 4)) % 4);
+  const binary = atob(padded);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
   return new TextDecoder().decode(bytes);
+}
+
+function readSyncTokenFromLocation() {
+  const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : "";
+  const query = window.location.search.startsWith("?") ? window.location.search.slice(1) : "";
+
+  const fromHash = extractSyncToken(hash);
+  if (fromHash) return fromHash;
+
+  const fromQuery = extractSyncToken(query);
+  if (fromQuery) return fromQuery;
+
+  return null;
+}
+
+function extractSyncToken(fragment) {
+  if (!fragment) return null;
+  const parts = fragment.split("&");
+  for (const part of parts) {
+    const [key, ...rest] = part.split("=");
+    if (key === "sync" && rest.length) {
+      const raw = rest.join("=");
+      try {
+        return decodeURIComponent(raw);
+      } catch {
+        return raw;
+      }
+    }
+  }
+  return null;
 }
