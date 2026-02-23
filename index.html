@@ -31,6 +31,7 @@
             Budget ($)
             <input id="budget-input" type="number" min="0" step="1" value="10000" />
           </label>
+          <button id="sync-link-btn" class="ghost" type="button">Copy Sync Link</button>
         </div>
       </header>
 
@@ -80,25 +81,25 @@
               </label>
             </div>
 
+            <label>
+              Price ($)
+              <input id="item-price" type="number" min="0" step="0.01" value="0" required />
+            </label>
+
             <div class="row-3">
               <label>
-                Price ($)
-                <input id="item-price" type="number" min="0" step="0.01" value="0" required />
+                H (in)
+                <input id="item-height" type="number" min="0" step="0.1" value="0" />
               </label>
               <label>
-                Width (in)
+                W (in)
                 <input id="item-width" type="number" min="0" step="0.1" value="0" />
               </label>
               <label>
-                Depth (in)
+                D (in)
                 <input id="item-depth" type="number" min="0" step="0.1" value="0" />
               </label>
             </div>
-
-            <label>
-              Height (in)
-              <input id="item-height" type="number" min="0" step="0.1" value="0" />
-            </label>
 
             <label>
               Image URL

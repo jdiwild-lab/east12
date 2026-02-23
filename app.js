@@ -27,6 +27,7 @@ const els = {
   autofillBtn: document.getElementById("autofill-btn"),
   budgetInput: document.getElementById("budget-input"),
   themeSelect: document.getElementById("theme-select"),
+  syncLinkBtn: document.getElementById("sync-link-btn"),
   categoryChips: document.getElementById("category-chips"),
   searchInput: document.getElementById("search-input"),
   sortSelect: document.getElementById("sort-select"),
@@ -43,6 +44,7 @@ boot();
 
 function boot() {
   loadTheme();
+  loadFromSyncHash();
   loadState();
   wireEvents();
   renderCategoryChips();
@@ -68,6 +70,7 @@ function wireEvents() {
   els.themeSelect.addEventListener("change", () => {
     applyTheme(els.themeSelect.value);
   });
+  els.syncLinkBtn.addEventListener("click", onCopySyncLink);
 }
 
 function onAddItem(event) {
@@ -335,7 +338,8 @@ function renderList() {
           <h4>${escapeHtml(item.name)}</h4>
           <span class="price">${money(item.price)}</span>
         </div>
-        <p class="meta">${escapeHtml(item.category)} • ${escapeHtml(item.status)} • ${dims}</p>
+        <p class="meta">${escapeHtml(item.category)} • ${escapeHtml(item.status)}</p>
+        <p class="meta">${dims}</p>
         <p class="notes">${escapeHtml(item.notes || "No notes")}</p>
         <div class="tag-row">
           <span class="tag">Added ${new Date(item.createdAt).toLocaleDateString()}</span>
@@ -412,6 +416,7 @@ function normalizeItem(item) {
 }
 
 function loadState() {
+  if (state.items.length) return;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return;
@@ -421,6 +426,52 @@ function loadState() {
     els.sortSelect.value = state.sort;
   } catch {
     // Ignore corrupted local data.
+  }
+}
+
+function loadFromSyncHash() {
+  try {
+    const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : "";
+    if (!hash) return;
+    const params = new URLSearchParams(hash);
+    const packed = params.get("sync");
+    if (!packed) return;
+
+    const json = decodeBase64Utf8(packed);
+    const parsed = JSON.parse(json);
+    const incoming = Array.isArray(parsed) ? parsed : parsed.items;
+    if (!Array.isArray(incoming)) return;
+
+    state.items = incoming.map(normalizeItem).filter(Boolean);
+    if (Number(parsed.budget) >= 0) state.budget = Number(parsed.budget);
+    if (parsed.theme) applyTheme(String(parsed.theme), true);
+    saveState();
+    setStatus(`Loaded ${state.items.length} items from sync link.`);
+  } catch {
+    setStatus("Sync link could not be read.");
+  }
+}
+
+async function onCopySyncLink() {
+  try {
+    const payload = {
+      budget: state.budget,
+      theme: document.documentElement.getAttribute("data-theme") || "slate",
+      items: state.items,
+    };
+    const packed = encodeBase64Utf8(JSON.stringify(payload));
+    const url = `${window.location.origin}${window.location.pathname}#sync=${encodeURIComponent(packed)}`;
+
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(url);
+      setStatus("Sync link copied. Open that exact link in another browser.");
+      return;
+    }
+
+    window.prompt("Copy this sync link:", url);
+    setStatus("Sync link created.");
+  } catch {
+    setStatus("Could not create sync link.");
   }
 }
 
@@ -463,7 +514,7 @@ function money(value) {
 
 function formatDimensions(w, d, h) {
   if (!(w > 0) && !(d > 0) && !(h > 0)) return "No size yet";
-  return `${w || "?"}\"W x ${d || "?"}\"D x ${h || "?"}\"H`;
+  return `H ${h || "?"}\" • W ${w || "?"}\" • D ${d || "?"}\"`;
 }
 
 function setStatus(text) {
@@ -477,4 +528,18 @@ function escapeHtml(str) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
+}
+
+function encodeBase64Utf8(text) {
+  const bytes = new TextEncoder().encode(text);
+  let binary = "";
+  for (const b of bytes) binary += String.fromCharCode(b);
+  return btoa(binary);
+}
+
+function decodeBase64Utf8(base64) {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return new TextDecoder().decode(bytes);
 }
