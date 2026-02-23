@@ -35,6 +35,18 @@
         </div>
       </header>
 
+      <section class="card sync-card">
+        <div class="sync-row">
+          <label>
+            Live Sync Room
+            <input id="sync-room-input" placeholder="e.g., matt-apt-setup" />
+          </label>
+          <button id="sync-connect-btn" type="button">Connect Firebase</button>
+          <button id="sync-disconnect-btn" class="ghost" type="button">Disconnect</button>
+        </div>
+        <p id="sync-state" class="hint">Live sync is off.</p>
+      </section>
+
       <section class="stats-grid">
         <article class="card stat"><p>Total Items</p><h2 id="stat-total">0</h2></article>
         <article class="card stat"><p>Needed</p><h2 id="stat-needed">0</h2></article>
@@ -134,6 +146,7 @@
       </section>
     </main>
 
-    <script src="app.js"></script>
+    <script src="firebase-config.js"></script>
+    <script type="module" src="app.js"></script>
   </body>
 </html>

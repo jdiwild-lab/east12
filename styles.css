@@ -152,6 +152,17 @@ h1 {
   gap: 0.9rem;
 }
 
+.sync-card {
+  padding: 0.9rem 1rem;
+}
+
+.sync-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto auto;
+  gap: 0.55rem;
+  align-items: end;
+}
+
 .form-card,
 .list-card {
   padding: 1rem;
@@ -390,6 +401,10 @@ button.ghost,
   .budget-wrap > * {
     flex: 1 1 160px;
   }
+
+  .sync-row {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 @media (max-width: 660px) {
@@ -439,6 +454,10 @@ button.ghost,
   button {
     width: 100%;
     text-align: center;
+  }
+
+  .sync-row {
+    grid-template-columns: 1fr;
   }
 }
 

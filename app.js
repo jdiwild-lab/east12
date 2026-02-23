@@ -1,5 +1,10 @@
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { doc, getFirestore, onSnapshot, serverTimestamp, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
 const STORAGE_KEY = "homeShoppingCatalogV1";
 const THEME_KEY = "homeShoppingThemeV1";
+const SYNC_KEY = "homeShoppingSyncV1";
 
 const CATEGORIES = ["All", "Furniture", "Media/Tech", "Bedding", "Art/Posters"];
 const STATUS = ["Need", "Considering", "Purchased"];
@@ -10,6 +15,13 @@ const state = {
   filterCategory: "All",
   search: "",
   sort: "newest",
+  sync: {
+    roomId: "",
+    connected: false,
+    unsubscribe: null,
+    applyingRemote: false,
+    lastPushedAt: 0,
+  },
 };
 
 const els = {
@@ -26,6 +38,10 @@ const els = {
   notes: document.getElementById("item-notes"),
   autofillBtn: document.getElementById("autofill-btn"),
   budgetInput: document.getElementById("budget-input"),
+  syncRoomInput: document.getElementById("sync-room-input"),
+  syncConnectBtn: document.getElementById("sync-connect-btn"),
+  syncDisconnectBtn: document.getElementById("sync-disconnect-btn"),
+  syncState: document.getElementById("sync-state"),
   themeSelect: document.getElementById("theme-select"),
   syncLinkBtn: document.getElementById("sync-link-btn"),
   categoryChips: document.getElementById("category-chips"),
@@ -45,10 +61,12 @@ boot();
 function boot() {
   loadTheme();
   loadFromSyncHash();
+  loadSyncPrefs();
   loadState();
   wireEvents();
   renderCategoryChips();
   render();
+  renderSyncState("Live sync is off.");
 }
 
 function wireEvents() {
@@ -71,6 +89,8 @@ function wireEvents() {
     applyTheme(els.themeSelect.value);
   });
   els.syncLinkBtn.addEventListener("click", onCopySyncLink);
+  els.syncConnectBtn.addEventListener("click", onConnectSync);
+  els.syncDisconnectBtn.addEventListener("click", onDisconnectSync);
 }
 
 function onAddItem(event) {
@@ -370,6 +390,7 @@ function renderList() {
       }
       saveState();
       render();
+      syncPushState();
     });
   });
 }
@@ -478,6 +499,24 @@ function loadTheme() {
   applyTheme(stored, false);
 }
 
+function loadSyncPrefs() {
+  try {
+    const raw = localStorage.getItem(SYNC_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    if (typeof data.roomId === "string") {
+      state.sync.roomId = data.roomId;
+      els.syncRoomInput.value = data.roomId;
+    }
+  } catch {
+    // ignore invalid sync prefs
+  }
+}
+
+function saveSyncPrefs() {
+  localStorage.setItem(SYNC_KEY, JSON.stringify({ roomId: state.sync.roomId }));
+}
+
 function applyTheme(theme, persist = true) {
   const allowed = new Set(["slate", "charcoal", "navy"]);
   const next = allowed.has(theme) ? theme : "slate";
@@ -494,6 +533,7 @@ function saveState() {
       items: state.items,
     })
   );
+  syncPushState();
 }
 
 function resetForm() {
@@ -572,4 +612,109 @@ function extractSyncToken(fragment) {
     }
   }
   return null;
+}
+
+let firebaseApp = null;
+let firebaseAuth = null;
+let firestore = null;
+let firebaseUid = "";
+
+async function ensureFirebaseReady() {
+  const cfg = window.FIREBASE_CONFIG;
+  if (!cfg || !cfg.apiKey || !cfg.projectId || !cfg.appId) {
+    throw new Error("Missing firebase-config.js (FIREBASE_CONFIG)");
+  }
+  if (!firebaseApp) {
+    firebaseApp = initializeApp(cfg);
+    firebaseAuth = getAuth(firebaseApp);
+    firestore = getFirestore(firebaseApp);
+    await signInAnonymously(firebaseAuth);
+    firebaseUid = firebaseAuth.currentUser?.uid || "";
+  }
+}
+
+async function onConnectSync() {
+  const roomId = sanitizeRoomId(els.syncRoomInput.value);
+  if (!roomId) {
+    renderSyncState("Enter a room ID first (letters, numbers, dash).");
+    return;
+  }
+  els.syncRoomInput.value = roomId;
+  try {
+    await ensureFirebaseReady();
+  } catch (err) {
+    renderSyncState(`Firebase setup required: ${err.message}`);
+    return;
+  }
+
+  onDisconnectSync(false);
+  state.sync.roomId = roomId;
+  saveSyncPrefs();
+
+  const roomRef = doc(firestore, "catalogRooms", roomId);
+  state.sync.unsubscribe = onSnapshot(roomRef, (snapshot) => {
+    const data = snapshot.data();
+    if (!data || !Array.isArray(data.items)) return;
+    const remoteItems = data.items.map(normalizeItem).filter(Boolean);
+    const remoteBudget = Number(data.budget);
+
+    state.sync.applyingRemote = true;
+    state.items = remoteItems;
+    if (remoteBudget >= 0) state.budget = remoteBudget;
+    saveState();
+    render();
+    state.sync.applyingRemote = false;
+    renderSyncState(`Live sync connected: ${roomId}`);
+  });
+
+  state.sync.connected = true;
+  renderSyncState(`Connecting to ${roomId}...`);
+  await syncPushState(true);
+}
+
+function onDisconnectSync(showMessage = true) {
+  if (state.sync.unsubscribe) {
+    state.sync.unsubscribe();
+    state.sync.unsubscribe = null;
+  }
+  state.sync.connected = false;
+  state.sync.applyingRemote = false;
+  if (showMessage) renderSyncState("Live sync is off.");
+}
+
+async function syncPushState(force = false) {
+  if (!state.sync.connected || state.sync.applyingRemote || !firestore || !state.sync.roomId) return;
+  const now = Date.now();
+  if (!force && now - state.sync.lastPushedAt < 500) return;
+  state.sync.lastPushedAt = now;
+
+  try {
+    const roomRef = doc(firestore, "catalogRooms", state.sync.roomId);
+    await setDoc(
+      roomRef,
+      {
+        budget: state.budget,
+        items: state.items,
+        updatedAt: serverTimestamp(),
+        updatedBy: firebaseUid || "anonymous",
+      },
+      { merge: true }
+    );
+  } catch {
+    renderSyncState("Sync write failed. Check Firebase rules/config.");
+  }
+}
+
+function sanitizeRoomId(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replaceAll(/[^a-z0-9-_]/g, "-")
+    .replaceAll(/-+/g, "-")
+    .replaceAll(/^-|-$/g, "");
+}
+
+function renderSyncState(text) {
+  if (!els.syncState) return;
+  els.syncState.textContent = text;
 }
