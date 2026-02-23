@@ -550,7 +550,8 @@ async function onConnectSync() {
   try {
     await ensureFirebaseReady();
   } catch (err) {
-    renderSyncState(`Firebase setup required: ${err.message}`);
+    const msg = err?.code ? `${err.code}: ${err.message}` : err?.message || "Unknown Firebase error";
+    renderSyncState(`Firebase setup required: ${msg}`);
     return;
   }
 
@@ -607,8 +608,9 @@ async function syncPushState(force = false) {
       },
       { merge: true }
     );
-  } catch {
-    renderSyncState("Sync write failed. Check Firebase rules/config.");
+  } catch (err) {
+    const msg = err?.code ? `${err.code}: ${err.message}` : err?.message || "Unknown Firebase error";
+    renderSyncState(`Sync write failed: ${msg}`);
   }
 }
 
