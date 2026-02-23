@@ -1,4 +1,5 @@
 const STORAGE_KEY = "homeShoppingCatalogV1";
+const THEME_KEY = "homeShoppingThemeV1";
 
 const CATEGORIES = ["All", "Furniture", "Media/Tech", "Bedding", "Art/Posters"];
 const STATUS = ["Need", "Considering", "Purchased"];
@@ -25,8 +26,7 @@ const els = {
   notes: document.getElementById("item-notes"),
   autofillBtn: document.getElementById("autofill-btn"),
   budgetInput: document.getElementById("budget-input"),
-  exportBtn: document.getElementById("export-btn"),
-  importInput: document.getElementById("import-input"),
+  themeSelect: document.getElementById("theme-select"),
   categoryChips: document.getElementById("category-chips"),
   searchInput: document.getElementById("search-input"),
   sortSelect: document.getElementById("sort-select"),
@@ -42,6 +42,7 @@ const els = {
 boot();
 
 function boot() {
+  loadTheme();
   loadState();
   wireEvents();
   renderCategoryChips();
@@ -64,8 +65,9 @@ function wireEvents() {
     state.sort = els.sortSelect.value;
     renderList();
   });
-  els.exportBtn.addEventListener("click", onExport);
-  els.importInput.addEventListener("change", onImport);
+  els.themeSelect.addEventListener("change", () => {
+    applyTheme(els.themeSelect.value);
+  });
 }
 
 function onAddItem(event) {
@@ -389,47 +391,6 @@ function applyFiltersAndSort(items) {
   return filtered;
 }
 
-function onExport() {
-  const payload = {
-    exportedAt: new Date().toISOString(),
-    budget: state.budget,
-    items: state.items,
-  };
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "shopping-catalog.json";
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-async function onImport(event) {
-  const file = event.target.files?.[0];
-  if (!file) return;
-
-  try {
-    const text = await file.text();
-    const parsed = JSON.parse(text);
-    const incoming = Array.isArray(parsed) ? parsed : parsed.items;
-    if (!Array.isArray(incoming)) throw new Error("Invalid file format");
-
-    state.items = incoming
-      .map(normalizeItem)
-      .filter(Boolean)
-      .sort((a, b) => b.createdAt - a.createdAt);
-    if (Number(parsed.budget) >= 0) state.budget = Number(parsed.budget);
-
-    saveState();
-    render();
-    setStatus(`Imported ${state.items.length} items.`);
-  } catch {
-    setStatus("Import failed. Use a JSON export from this app.");
-  }
-
-  event.target.value = "";
-}
-
 function normalizeItem(item) {
   if (!item || typeof item !== "object") return null;
   const name = String(item.name || "").trim();
@@ -461,6 +422,19 @@ function loadState() {
   } catch {
     // Ignore corrupted local data.
   }
+}
+
+function loadTheme() {
+  const stored = localStorage.getItem(THEME_KEY) || "slate";
+  applyTheme(stored, false);
+}
+
+function applyTheme(theme, persist = true) {
+  const allowed = new Set(["slate", "charcoal", "navy"]);
+  const next = allowed.has(theme) ? theme : "slate";
+  document.documentElement.setAttribute("data-theme", next);
+  if (els.themeSelect) els.themeSelect.value = next;
+  if (persist) localStorage.setItem(THEME_KEY, next);
 }
 
 function saveState() {

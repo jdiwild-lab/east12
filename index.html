@@ -20,13 +20,16 @@
         </div>
         <div class="budget-wrap">
           <label>
+            Theme
+            <select id="theme-select">
+              <option value="slate">Pub Green</option>
+              <option value="charcoal">Charcoal Bronze</option>
+              <option value="navy">Forest Club</option>
+            </select>
+          </label>
+          <label>
             Budget ($)
             <input id="budget-input" type="number" min="0" step="1" value="10000" />
-          </label>
-          <button id="export-btn" class="ghost" type="button">Export JSON</button>
-          <label class="import-btn">
-            Import JSON
-            <input id="import-input" type="file" accept="application/json" />
           </label>
         </div>
       </header>

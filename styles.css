@@ -1,12 +1,59 @@
 :root {
-  --bg: #dfe4ea;
-  --ink: #101722;
-  --muted: #445266;
-  --line: #cad2dd;
-  --card: #f9fbfd;
-  --accent: #1f3f60;
-  --accent-2: #0f2238;
+  --bg: #dde2db;
+  --ink: #121814;
+  --muted: #4a564d;
+  --line: #c8d2c7;
+  --card: #f7faf5;
+  --accent: #2d4a38;
+  --accent-2: #1b2f24;
+  --chip-active-bg: #d7e4d8;
+  --chip-active-border: #9fb5a1;
+  --ghost-bg: #e8eee7;
+  --ghost-ink: #223629;
+  --ghost-line: #cad6cb;
+  --bg-grad-1: #aebcaf;
+  --bg-grad-2: #c7b59f;
+  --bg-grad-3a: #dfe4dd;
+  --bg-grad-3b: #d6ddd4;
   --danger: #b91c1c;
+}
+
+[data-theme="charcoal"] {
+  --bg: #e2e0db;
+  --ink: #151719;
+  --muted: #54514d;
+  --line: #d2cdc5;
+  --card: #fbfaf8;
+  --accent: #5f4635;
+  --accent-2: #2a2f35;
+  --chip-active-bg: #eadfcd;
+  --chip-active-border: #d3b999;
+  --ghost-bg: #ece8e1;
+  --ghost-ink: #2d333a;
+  --ghost-line: #d4cec4;
+  --bg-grad-1: #bcc4cc;
+  --bg-grad-2: #ceb9a1;
+  --bg-grad-3a: #e4e0da;
+  --bg-grad-3b: #dddad5;
+}
+
+[data-theme="navy"] {
+  --bg: #dfe5de;
+  --ink: #131a15;
+  --muted: #4d5b52;
+  --line: #cbd5cc;
+  --card: #f8fbf6;
+  --accent: #274534;
+  --accent-2: #162c20;
+  --chip-active-bg: #d9e7db;
+  --chip-active-border: #a5bda8;
+  --ghost-bg: #e7eee8;
+  --ghost-ink: #1f392b;
+  --ghost-line: #cdd8ce;
+  --bg-grad-1: #b2c2b2;
+  --bg-grad-2: #ccbca7;
+  --bg-grad-3a: #e0e6df;
+  --bg-grad-3b: #d7ddd6;
 }
 
 * {
@@ -24,9 +71,9 @@ body {
   position: fixed;
   inset: 0;
   background:
-    radial-gradient(circle at 90% -10%, #b7c8db 0%, transparent 40%),
-    radial-gradient(circle at -15% 110%, #c9c0ad 0%, transparent 35%),
-    linear-gradient(180deg, #dde3ea, #d8dde5);
+    radial-gradient(circle at 90% -10%, var(--bg-grad-1) 0%, transparent 40%),
+    radial-gradient(circle at -15% 110%, var(--bg-grad-2) 0%, transparent 35%),
+    linear-gradient(180deg, var(--bg-grad-3a), var(--bg-grad-3b));
   z-index: -1;
 }
 
@@ -182,9 +229,9 @@ button.primary {
 
 button.ghost,
 .import-btn {
-  background: #e7edf4;
-  color: #16283d;
-  border: 1px solid #ced8e3;
+  background: var(--ghost-bg);
+  color: var(--ghost-ink);
+  border: 1px solid var(--ghost-line);
 }
 
 .import-btn {
@@ -234,8 +281,8 @@ button.ghost,
 }
 
 .chip.active {
-  background: #dbe6f2;
-  border-color: #a8bfd8;
+  background: var(--chip-active-bg);
+  border-color: var(--chip-active-border);
 }
 
 .catalog-list {
